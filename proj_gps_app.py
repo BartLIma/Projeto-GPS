@@ -1,10 +1,11 @@
 import pandas as pd
 import streamlit as st
 import requests
+import os
 
 st.set_page_config(layout="wide")
 
-# --- TRUQUE CSS: Enxuga ao máximo os recuos superiores para ganhar campo de visão ---
+# --- TRUQUE CSS: Enxuga os recuos superiores para otimizar o campo de visão ---
 st.markdown(
     """
     <style>
@@ -43,7 +44,14 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro do arquivo projeto_gps.csv
+    # 🛡️ BLINDAGEM CONTRA FILE NOT FOUND: Se o arquivo sumir, o Python cria um vazio na hora
+    lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"]
+    
+    if not os.path.exists("projeto_gps.csv"):
+        df_vazio = pd.DataFrame(columns=["Município"] + lista_colunas_obrigatorias)
+        df_vazio.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+
+    # 🌟 TRAVA DE SEGURANÇA: Força o Pandas a ler estritamente usando ponto e vírgula (sep=";")
     try:
         df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
@@ -65,12 +73,10 @@ if st.session_state["acesso_liberado"]:
         elif "cep" in col_limpa: mapeamento_colunas[col] = "Cep"
         elif "bairro" in col_limpa: mapeamento_colunas[col] = "Bairro"
         elif "enderec" in col_limpa: mapeamento_colunas[col] = "Endereço Completo"
-        elif "comentar" in col_limpa: mapeamento_colunas[col] = "Comentários" # Adicionado o mapeamento
+        elif "comentar" in col_limpa: mapeamento_colunas[col] = "Comentários"
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # 🌟 Adicionado "Comentários" na lista de colunas obrigatórias
-    lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
     if "Município" not in df.columns: df["Município"] = ""
@@ -110,8 +116,8 @@ if st.session_state["acesso_liberado"]:
                     opcoes_pessoas[f"{nome_civil}{nome_hud}{muni_ref}"] = idx
                 
                 pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
-                if pessoa_sel and opcoes_pessoas[pessoa_sel] is not None:
-                    st.session_state["indice_persona_consultada"] = opcoes_pessoas[pessoa_sel]
+                if p_idx := opcoes_pessoas.get(pessoa_sel):
+                    st.session_state["indice_persona_consultada"] = p_idx
             else:
                 st.session_state["indice_persona_consultada"] = None
                 st.warning("Nenhuma pessoa foi localizada com esse nome.")
@@ -145,11 +151,9 @@ if st.session_state["acesso_liberado"]:
             
             st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
             
-            # 🌟 EXIBIÇÃO DO CAMPO COMENTÁRIOS NA CONSULTA 🌟
-            v_com = df.loc[p_idx, 'Commentarios' if 'Commentarios' in df.columns else 'Comentários']
+            v_com = df.loc[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if pd.notna(v_com) and str(v_com).lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
-    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -164,7 +168,6 @@ if st.session_state["acesso_liberado"]:
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
-                # 🌟 CORREÇÃO CRÍTICA (Linha 166): Captura o primeiro valor numérico do índice para evitar falhas do Pandas
                 idx_real_salvamento = int(registro_filtrado.index[0])
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
@@ -192,7 +195,7 @@ if st.session_state["acesso_liberado"]:
                 
                 rua_vazia_padrao = v_end_completo_antigo
                 if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
-                    rua_vazia_padrao = v_end_completo_antigo.split(", nº")
+                    rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
 
                 with st.form("form_gps_editar_real"):
                     col_esq, col_dir = st.columns(2)
@@ -230,7 +233,6 @@ if st.session_state["acesso_liberado"]:
                             st.dataframe(df_copia, use_container_width=True)
             else:
                 st.error("Membro não localizado na base de dados.")
-
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
         st.subheader("🆕 Criar Novo Cadastro Comunitário")
@@ -257,7 +259,7 @@ if st.session_state["acesso_liberado"]:
                 st.markdown("### 👤 Informações Pessoais")
                 n_nome = st.text_input("Nome Completo Civil (Obrigatório):")
                 n_judaico = st.text_input("Nome Judaico / Hebraico:")
-                n_email = st.text_input("E-mail:")
+                n_email = n_email = st.text_input("E-mail:")
                 n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
                 n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
                 n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
@@ -268,25 +270,19 @@ if st.session_state["acesso_liberado"]:
                 n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
                 n_bairro = st.text_input("Bairro:", value=bairro_n)
             
-            # 🌟 INSERÇÃO DO CAMPO COMENTÁRIOS NO FORMULÁRIO DE NOVO CADASTRO 🌟
             st.markdown("---")
             n_coment = st.text_area("🗒️ Comentários / Histórico Comunitário Inicial:", value="", height=100)
             
             st.markdown("---")
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
-            if st.form_submit_button("⚙️ Processar Nova Linha para o Excel", use_container_width=True):
-                if not n_nome.strip(): 
-                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: 
-                    st.error("Você precisa aceitar os termos da LGPD.")
+            if st.form_submit_button("💾 Gerar Nova Linha para o Excel", use_container_width=True):
+                if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
-                    
-                    # Monta o DataFrame de uma linha estruturado com os Comentários posicionados na última coluna
                     df_novo_membro_copia = pd.DataFrame([[n_muni, n_nome.strip(), n_email, n_judaico, n_telefone, n_perfil, n_vinculo, n_cep, n_bairro, n_rua, n_coment]], 
                                             columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
-                    
                     st.dataframe(df_novo_membro_copia, use_container_width=True)
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
