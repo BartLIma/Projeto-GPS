@@ -43,7 +43,7 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro do arquivo projeto_gps.csv
+    # Carrega a base atual do repositório (Para servir de consulta ou base de edição)
     try:
         df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
@@ -68,18 +68,14 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Lista de colunas obrigatórias
     lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
     for col_nome in lista_colunas_obrigatorias:
-        if col_nome not in df.columns:
-            df[col_nome] = ""
-    if "Município" not in df.columns:
-        df["Município"] = ""
+        if col_nome not in df.columns: df[col_nome] = ""
+    if "Município" not in df.columns: df["Município"] = ""
 
     df["Nome Completo"] = df["Nome Completo"].astype(str).str.strip()
     df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
-    # Cabeçalho completo para evitar bloqueios da API de CEP
     headers_viacep = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "application/json"
@@ -90,20 +86,6 @@ if st.session_state["acesso_liberado"]:
     menu = st.sidebar.radio(
         "Selecione a Ação:", 
         ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero"]
-    )
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📥 Exportação de Segurança")
-
-    # 🌟 ADICIONADO AQUI: Botão mestre de Download no menu lateral para extrair os dados salvos na nuvem 🌟
-    ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
-    csv_atualizado_nuvem = df[ordem_final_colunas].to_csv(sep=";", index=False, encoding="utf-8-sig").encode("utf-8-sig")
-    
-    st.sidebar.download_button(
-        label="📥 Baixar Base de Dados Atualizada",
-        data=csv_atualizado_nuvem,
-        file_name="projeto_gps_atualizado.csv",
-        mime="text/csv",
-        use_container_width=True
     )
     st.sidebar.markdown("---")
 
@@ -160,16 +142,15 @@ if st.session_state["acesso_liberado"]:
             txt_cp = v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else 'Não preenchido'
             
             st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
-
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
-        st.title("📝 Editar Cadastro Comunitário")
+        st.subheader("📝 Editar Cadastro Comunitário") # Título poluidor removido, mantido subheader discreto
         
         df_validos = df[df["Nome Completo"].str.lower() != "nan"]
         df_validos = df_validos[df_validos["Nome Completo"].str.strip() != ""]
         nomes_cadastrados = sorted(df_validos["Nome Completo"].unique())
         
-        nome_alvo = st.selectbox("Selecione o Nome Completo para editar:", nomes_cadastrados, key="nome_cadastro")
+        nome_alvo = st.selectbox("Selecione o Nome Completo para carregar:", nomes_cadastrados, key="nome_cadastro")
         
         if nome_alvo:
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
@@ -193,10 +174,7 @@ if st.session_state["acesso_liberado"]:
                                 cid_auto = j_cep.get("localidade", "")
                                 uf_auto = j_cep.get("uf", "")
                                 st.success(f"📍 ViaCEP Encontrado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
-                            else:
-                                st.caption("ℹ️ CEP válido na base, preencha as caixas abaixo caso queira atualizar.")
-                    except Exception:
-                        st.caption("ℹ️ Modo de digitação manual ativo para o endereço abaixo.")
+                    except Exception: pass
 
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
                 v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
@@ -219,9 +197,7 @@ if st.session_state["acesso_liberado"]:
                         v_p = str(df.at[idx_real_salvamento, "Perfil Identidade"]).strip()
                         idx_p = lista_perfis.index(v_p) if v_p in lista_perfis else 2
                         perfil_i = st.selectbox("Perfil Identidade:", lista_perfis, index=idx_p)
-                        
-                        v_v = str(df.at[idx_real_salvamento, "Vinculação Comunitária"]).strip()
-                        vinculo_i = st.text_input("Vinculação Comunitária:", value=v_v if v_v.lower() != "nan" else "Isolado (Sem comunidade)")
+                        vinculo_i = st.text_input("Vinculação Comunitária:", value=str(df.at[idx_real_salvamento, "Vinculação Comunitária"]))
                     
                     with col_dir:
                         st.markdown("### 🏢 Ajuste do Endereço")
@@ -231,35 +207,28 @@ if st.session_state["acesso_liberado"]:
                     st.markdown("---")
                     aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
                     
-                    if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                    # Processa a string sem tentar salvar no arquivo local da nuvem
+                    if st.form_submit_button("⚙️ Processar Linha Alterada para o Excel", use_container_width=True):
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            df.at[idx_real_salvamento, "Município"] = muni_i
-                            df.at[idx_real_salvamento, "Email"] = email_i
-                            df.at[idx_real_salvamento, "Nome Judaico"] = nome_j_i
-                            df.at[idx_real_salvamento, "Telefone"] = tel_i
-                            df.at[idx_real_salvamento, "Perfil Identidade"] = perfil_i
-                            df.at[idx_real_salvamento, "Vinculação Comunitária"] = vinculo_i
-                            df.at[idx_real_salvamento, "Cep"] = cep_i
-                            df.at[idx_real_salvamento, "Bairro"] = bairro_i
-                            df.at[idx_real_salvamento, "Endereço Completo"] = rua_i
+                            st.success("🎉 Linha estruturada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar na sua planilha do computador.")
                             
-                            ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
-                            df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
-                            st.success("Cadastro atualizado com sucesso!")
-                            st.balloons()
-                            st.rerun()
+                            # Cria a string tabulada ideal para a colagem de colunas no Excel
+                            dados_copia_excel = f"{muni_i}\t{nome_alvo}\t{email_i}\t{nome_j_i}\t{tel_i}\t{perfil_i}\t{vinculo_i}\t{cep_i}\t{bairro_i}\t{rua_i}"
+                            
+                            # Exibe no formato st.dataframe que possui o botão em prancheta nativo de cópia no canto superior direito
+                            df_copia = pd.DataFrame([[muni_i, nome_alvo, email_i, nome_j_i, tel_i, perfil_i, vinculo_i, cep_i, bairro_i, rua_i]], 
+                                                    columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"])
+                            st.dataframe(df_copia, use_container_width=True)
             else:
                 st.error("Membro não localizado na base de dados.")
-
-        # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
+    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
-        st.title("🆕 Criar Novo Cadastro Comunitário")
-        st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
+        st.subheader("🆕 Criar Novo Cadastro Comunitário") # Título poluidor removido, mantido subheader discreto
         
         st.markdown("### 🏢 Validação Postal")
-        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
+        n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
         rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
         if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
             try:
@@ -294,27 +263,20 @@ if st.session_state["acesso_liberado"]:
             st.markdown("---")
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
-            if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
-                if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
+            if st.form_submit_button("⚙️ Processar Nova Linha para o Excel", use_container_width=True):
+                if not n_nome.strip(): 
+                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                elif not n_lgpd: 
+                    st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    proximo_indice = len(df)
+                    st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
                     
-                    df.at[proximo_indice, "Município"] = str(n_muni).strip()
-                    df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
-                    df.at[proximo_indice, "Email"] = str(n_email).strip()
-                    df.at[proximo_indice, "Nome Judaico"] = str(n_judaico).strip()
-                    df.at[proximo_indice, "Telefone"] = str(n_telefone).strip()
-                    df.at[proximo_indice, "Perfil Identidade"] = str(n_perfil).strip()
-                    df.at[proximo_indice, "Vinculação Comunitária"] = str(n_vinculo).strip()
-                    df.at[proximo_indice, "Cep"] = str(n_cep).strip()
-                    df.at[proximo_indice, "Bairro"] = str(n_bairro).strip()
-                    df.at[proximo_indice, "Endereço Completo"] = str(n_rua).strip()
+                    # Monta o DataFrame de uma linha estruturado na ordem exata de colunas da planilha do seu computador
+                    df_novo_membro_copia = pd.DataFrame([[n_muni, n_nome.strip(), n_email, n_judaico, n_telefone, n_perfil, n_vinculo, n_cep, n_bairro, n_rua]], 
+                                            columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"])
                     
-                    df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
-                    st.success(f"🎉 {n_nome} foi gravado com sucesso no banco de dados GPS!")
-                    st.balloons()
-                    st.rerun()
+                    # Exibe o componente reativo na tela com cópia instantânea integrada
+                    st.dataframe(df_novo_membro_copia, use_container_width=True)
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
