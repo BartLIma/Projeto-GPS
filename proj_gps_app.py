@@ -10,7 +10,7 @@ st.markdown(
     <style>
         .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
         [data-testid="stSidebarUserContent"] { padding-top: 1.2rem !important; }
-        h1 { margin-top: -12px !important; margin-bottom: 0.5rem !important; }
+        h1 { margin-top: -1.2rem !important; margin-bottom: 0.5rem !important; }
         h3 { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
         .stMarkdown p { margin-bottom: 0.4rem !important; }
     </style>
@@ -43,7 +43,7 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro do arquivo projeto_gps.csv
+    # Carregamento seguro da base de dados projeto_gps.csv
     try:
         df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
@@ -68,7 +68,7 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Lista de colunas obrigatórias
+    # Lista de colunas obrigatórias conforme estrutura de negócio
     lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns:
@@ -79,9 +79,9 @@ if st.session_state["acesso_liberado"]:
     df["Nome Completo"] = df["Nome Completo"].astype(str).str.strip()
     df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
-    # Cabeçalho Mozilla completo para simular acesso real e forçar o ViaCEP a responder sem bloquear o IP
+    # Cabeçalho completo para evitar que o servidor do ViaCEP bloqueie as chamadas em nuvem
     headers_viacep = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "application/json"
     }
 
@@ -145,8 +145,9 @@ if st.session_state["acesso_liberado"]:
             txt_br = v_br if pd.notna(v_br) and str(v_br).lower() != 'nan' else 'Não preenchido'
             txt_cp = v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else 'Não preenchido'
             
-            st.info(f"📍 **Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
-      # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+            st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
+
+         # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
@@ -166,10 +167,10 @@ if st.session_state["acesso_liberado"]:
                 v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
                 cep_i = st.text_input("Digite ou altere o CEP residencial (8 números):", value=v_c if v_c.lower() != "nan" else "", max_chars=8)
                 
+                # Executa a busca na API com tratamento de erros preventivo
                 rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
                 if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
                     try:
-                        # BLINDAGEM DA API: Timeout de 4 segundos e headers completos impedem erros de conexão na nuvem
                         req = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/", headers=headers_viacep, timeout=4)
                         if req.status_code == 200:
                             j_cep = req.json()
@@ -178,18 +179,18 @@ if st.session_state["acesso_liberado"]:
                                 bairro_auto = j_cep.get("bairro", "")
                                 cid_auto = j_cep.get("localidade", "")
                                 uf_auto = j_cep.get("uf", "")
-                                st.success(f"📍 ViaCEP Localizado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
+                                st.success(f"📍 ViaCEP Encontrado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
                             else:
-                                st.caption("ℹ️ CEP válido, mas sem logradouro automático cadastrado (Preencha manualmente abaixo).")
-                        else:
-                            st.caption("ℹ️ Servidor postal ocupado. Digite os dados de endereço nos campos manuais abaixo.")
+                                st.caption("ℹ️ CEP válido na base, preencha as caixas abaixo caso queira atualizar.")
                     except Exception:
-                        st.caption("ℹ️ Consulta em segundo plano habilitada. Digite os dados de endereço nos campos manuais abaixo.")
+                        st.caption("ℹ️ Modo de digitação manual ativo para o endereço abaixo.")
 
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
                 v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
                 v_end_completo_antigo = str(df.at[idx_real_salvamento, "Endereço Completo"]).strip()
-                rua_vazia_padrao = ""
+                
+                # 🌟 MELHORIA SOLICITADA: Faz o logradouro antigo salvo reaparecer na caixa de texto se a API falhar 🌟
+                rua_vazia_padrao = v_end_completo_antigo
                 if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
                     rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
 
@@ -211,9 +212,9 @@ if st.session_state["acesso_liberado"]:
                         vinculo_i = st.text_input("Vinculação Comunitária:", value=v_v if v_v.lower() != "nan" else "Isolado (Sem comunidade)")
                     
                     with col_dir:
-                        st.markdown("### 🏢 Ajuste Fino do Endereço")
-                        rua_i = st.text_input("Logradouro (Rua/Avenida):", value=rua_a if rua_a else rua_vazia_padrao)
-                        num_i = st.text_input("Número / Complemento / Casa:")
+                        st.markdown("### 🏢 Ajuste do Endereço")
+                        # 🌟 MELHORIA SOLICITADA: Campo unificado de Logradouro (Sem número avulso) 🌟
+                        rua_i = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_a if rua_a else (rua_vazia_padrao if rua_vazia_padrao.lower() != 'nan' else ''))
                         bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
                     
                     st.markdown("---")
@@ -231,9 +232,7 @@ if st.session_state["acesso_liberado"]:
                             df.at[idx_real_salvamento, "Vinculação Comunitária"] = vinculo_i
                             df.at[idx_real_salvamento, "Cep"] = cep_i
                             df.at[idx_real_salvamento, "Bairro"] = bairro_i
-                            
-                            if rua_i: 
-                                df.at[idx_real_salvamento, "Endereço Completo"] = f"{rua_i}, nº {num_i}"
+                            df.at[idx_real_salvamento, "Endereço Completo"] = rua_i
                             
                             ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
                             df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
@@ -242,44 +241,28 @@ if st.session_state["acesso_liberado"]:
             else:
                 st.error("Membro não localizado na base de dados.")
 
-       # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
+    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
         st.title("🆕 Criar Novo Cadastro Comunitário")
         st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
         
-        # Inicializa variáveis de endereço na memória da página se não existirem
-        if "n_rua_val" not in st.session_state: st.session_state["n_rua_val"] = ""
-        if "n_bairro_val" not in st.session_state: st.session_state["n_bairro_val"] = ""
-        if "n_muni_val" not in st.session_state: st.session_state["n_muni_val"] = ""
-
-        # Função de disparo imediato chamada assim que o CEP é preenchido
-        def buscar_cep_instantaneo():
-            cep_digitado = st.session_state["cep_input_novo"].strip()
-            if cep_digitado.isdigit() and len(cep_digitado) == 8:
-                try:
-                    req_n = requests.get(f"https://viacep.com.br{cep_digitado}/json/", headers=headers_viacep, timeout=4)
-                    if req_n.status_code == 200:
-                        j_n = req_n.json()
-                        if "erro" not in j_n:
-                            st.session_state["n_rua_val"] = j_n.get("logradouro", "")
-                            st.session_state["n_bairro_val"] = j_n.get("bairro", "")
-                            st.session_state["n_muni_val"] = j_n.get("localidade", "")
-                        else:
-                            st.sidebar.error("⚠️ CEP não localizado na base postal nacional.")
-                except Exception:
-                    st.sidebar.warning("⚠️ Serviço de CEP temporariamente indisponível. Preencha manualmente.")
-
-        # Campo de CEP colocado como gatilho imediato de mudança (on_change)
         st.markdown("### 🏢 Validação Postal")
-        n_cep = st.text_input(
-            "Digite o CEP residencial (Apenas 8 números):", 
-            max_chars=8, 
-            key="cep_input_novo", 
-            on_change=buscar_cep_instantaneo
-        )
+        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
+        rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
+        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
+            try:
+                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
+                if req_n.status_code == 200:
+                    j_n = req_n.json()
+                    if "erro" not in j_n:
+                        rua_n = j_n.get("logradouro", "")
+                        bairro_n = j_n.get("bairro", "")
+                        muni_n = j_n.get("localidade", "")
+                        uf_n = j_n.get("uf", "")
+                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
+            except: pass
 
-        # Formulário principal de envio
-        with st.form("form_gps_novo_atualizado"):
+        with st.form("form_gps_novo"):
             col_esq, col_dir = st.columns(2)
             with col_esq:
                 st.markdown("### 👤 Informações Pessoais")
@@ -291,29 +274,80 @@ if st.session_state["acesso_liberado"]:
                 n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
             
             with col_dir:
-                st.markdown("### 🏡 Ajuste Fino do Endereço (Preenchido Automático)")
-                # Os campos abaixo escutam e travam as variáveis preenchidas pela API do CEP
-                n_muni = st.text_input("Município / Cidade:", value=st.session_state["n_muni_val"])
-                n_rua = st.text_input("Logradouro (Rua/Avenida):", value=st.session_state["n_rua_val"])
-                n_numero = st.text_input("Número / Complemento / Casa:")
-                n_bairro = st.text_input("Bairro:", value=st.session_state["n_bairro_val"])
+                st.markdown("### 🏡 Ajuste do Endereço")
+                n_muni = st.text_input("Município / Cidade:", value=muni_n)
+                # 🌟 MELHORIA SOLICITADA: Campo de endereço puro (Sem número avulso) 🌟
+                n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
+                n_bairro = st.text_input("Bairro:", value=bairro_n)
             
             st.markdown("---")
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
             if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
                 if not n_nome.strip(): 
-                    st.error("O campo 'Nome Completo Civil' é maior obrigatório!")
+                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
                 elif not n_lgpd: 
                     st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    # Concatena a string de endereço conforme o padrão visual da consulta
-                    n_endereco_completo = f"{n_rua}, nº {n_numero}" if n_rua else ""
-                    
-                    # CORREÇÃO DEFINITIVA DE GRAVAÇÃO: Calcula o próximo índice absoluto do arquivo físico
+                    # 🌟 FIX DE SALVAMENTO: Mapeia o próximo índice numérico absoluto livre para forçar a gravação física (.at)
                     proximo_indice = len(df)
                     
-                    # Grava diretamente linha por linha no DataFrame em memória
+                    df.at[proximo_indice, "Município"] = str(n_muni).strip()
+                    df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
+
+
+          # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
+    elif menu == "🆕 Criar Novo Cadastro do Zero":
+        st.title("🆕 Criar Novo Cadastro Comunitário")
+        st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
+        
+        st.markdown("### 🏢 Validação Postal")
+        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
+        rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
+        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
+            try:
+                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
+                if req_n.status_code == 200:
+                    j_n = req_n.json()
+                    if "erro" not in j_n:
+                        rua_n = j_n.get("logradouro", "")
+                        bairro_n = j_n.get("bairro", "")
+                        muni_n = j_n.get("localidade", "")
+                        uf_n = j_n.get("uf", "")
+                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
+            except: pass
+
+        with st.form("form_gps_novo"):
+            col_esq, col_dir = st.columns(2)
+            with col_esq:
+                st.markdown("### 👤 Informações Pessoais")
+                n_nome = st.text_input("Nome Completo Civil (Obrigatório):")
+                n_judaico = st.text_input("Nome Judaico / Hebraico:")
+                n_email = st.text_input("E-mail:")
+                n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
+                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
+                n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
+            
+            with col_dir:
+                st.markdown("### 🏡 Ajuste do Endereço")
+                n_muni = st.text_input("Município / Cidade:", value=muni_n)
+                # Campo de endereço puro unificado conforme solicitado (Ex: Rua Damasco, 79)
+                n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
+                n_bairro = st.text_input("Bairro:", value=bairro_n)
+            
+            st.markdown("---")
+            n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
+            
+            if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
+                if not n_nome.strip(): 
+                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                elif not n_lgpd: 
+                    st.error("Você precisa aceitar os termos da LGPD.")
+                else:
+                    # Calcula a próxima linha vazia do arquivo físico
+                    proximo_indice = len(df)
+                    
+                    # Injeta os novos dados diretamente por atribuição linear estável (.at)
                     df.at[proximo_indice, "Município"] = str(n_muni).strip()
                     df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
                     df.at[proximo_indice, "Email"] = str(n_email).strip()
@@ -323,19 +357,14 @@ if st.session_state["acesso_liberado"]:
                     df.at[proximo_indice, "Vinculação Comunitária"] = str(n_vinculo).strip()
                     df.at[proximo_indice, "Cep"] = str(n_cep).strip()
                     df.at[proximo_indice, "Bairro"] = str(n_bairro).strip()
-                    df.at[proximo_indice, "Endereço Completo"] = str(n_endereco_completo).strip()
+                    df.at[proximo_indice, "Endereço Completo"] = str(n_rua).strip()
                     
-                    # Força a escrita real e física sobrescrevendo o arquivo projeto_gps.csv
+                    # Salva e reordena sobrescrevendo o arquivo projeto_gps.csv fisicamente
                     ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
                     df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                     
                     st.success(f"🎉 {n_nome} foi gravado com sucesso no banco de dados GPS!")
                     st.balloons()
-                    
-                    # Limpa a memória temporária do CEP para o próximo cadastro vir em branco
-                    st.session_state["n_rua_val"] = ""
-                    st.session_state["n_bairro_val"] = ""
-                    st.session_state["n_muni_val"] = ""
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
