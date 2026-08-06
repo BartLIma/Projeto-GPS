@@ -150,6 +150,7 @@ if st.session_state["acesso_liberado"]:
             txt_com = str(v_com).strip() if pd.notna(v_com) and str(v_com).lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
         
@@ -163,7 +164,8 @@ if st.session_state["acesso_liberado"]:
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
-                idx_real_salvamento = int(registro_filtrado.index)
+                # 🌟 CORREÇÃO CRÍTICA (Linha 166): Captura o primeiro valor numérico do índice para evitar falhas do Pandas
+                idx_real_salvamento = int(registro_filtrado.index[0])
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
@@ -212,25 +214,23 @@ if st.session_state["acesso_liberado"]:
                         rua_i = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_a if rua_a else (rua_vazia_padrao if rua_vazia_padrao.lower() != 'nan' else ''))
                         bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
                     
-                    # 🌟 INSERÇÃO DO CAMPO COMENTÁRIOS NO FORMULÁRIO DE EDIÇÃO 🌟
                     st.markdown("---")
                     coment_i = st.text_area("🗒️ Comentários / Histórico Comunitário:", value=v_com_antigo if v_com_antigo.lower() != "nan" else "", height=100)
                     
                     st.markdown("---")
                     aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
                     
-                    if st.form_submit_button("⚙️ Processar Linha Alterada para o Excel", use_container_width=True):
+                    if st.form_submit_button("💾 Gerar Linha Alterada para o Excel", use_container_width=True):
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
                             st.success("🎉 Linha estruturada! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar no seu Excel.")
-                            
-                            # Exibe no formato st.dataframe estruturado com o campo Comentários incluído
                             df_copia = pd.DataFrame([[muni_i, nome_alvo, email_i, nome_j_i, tel_i, perfil_i, vinculo_i, cep_i, bairro_i, rua_i, coment_i]], 
                                                     columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
                             st.dataframe(df_copia, use_container_width=True)
             else:
                 st.error("Membro não localizado na base de dados.")
+
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
         st.subheader("🆕 Criar Novo Cadastro Comunitário")
