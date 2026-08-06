@@ -5,7 +5,6 @@ import os
 
 st.set_page_config(layout="wide")
 
-# --- TRUQUE CSS: Enxuga os recuos superiores para otimizar o campo de visão ---
 st.markdown(
     """
     <style>
@@ -19,7 +18,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Senha fixa para segurança do painel
 senha_correta = "ditre123"
 
 if "acesso_liberado" not in st.session_state:
@@ -28,7 +26,6 @@ if "acesso_liberado" not in st.session_state:
 if "indice_persona_consultada" not in st.session_state:
     st.session_state["indice_persona_consultada"] = None
 
-# --- TELA DE LOGIN ---
 if not st.session_state["acesso_liberado"]:
     st.title("🔐 Painel GPS - Autenticação")
     col_login, _ = st.columns(2)
@@ -41,14 +38,13 @@ if not st.session_state["acesso_liberado"]:
             else:
                 st.error("Senha incorreta! Tente novamente.")
 
-# --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # 🌟 Colunas obrigatórias com "Nome Civil" no lugar de Nome Completo
-    lista_colunas_obrigatorias = ["Estado", "Nome Civil", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"]
+    # Nova lista de colunas na ordem exata do seu formulário do Google
+    lista_colunas_obrigatorias = ["Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
     if not os.path.exists("projeto_gps.csv"):
-        df_vazio = pd.DataFrame(columns=["Município"] + lista_colunas_obrigatorias)
+        df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
 
     try:
@@ -58,46 +54,38 @@ if st.session_state["acesso_liberado"]:
         
     df = df.dropna(how="all")
 
-    # Mapeamento robusto: mapeia tanto "nomecomplet" quanto "nomecivil" para "Nome Civil"
+    # Mapeamento flexível adaptado aos novos nomes exatos do Google Forms
     mapeamento_colunas = {}
     for col in df.columns:
-        col_limpa = col.strip().lower().replace("-", "").replace(" ", "")
+        col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "")
         if "municip" in col_limpa: mapeamento_colunas[col] = "Município"
-        elif "estado" in col_limpa: mapeamento_colunas[col] = "Estado"
-        elif "nomecomplet" in col_limpa or "nomecivil" in col_limpa: mapeamento_colunas[col] = "Nome Civil"
-        elif "email" in col_limpa: mapeamento_colunas[col] = "Email"
+        elif "uf" in col_limpa or "estado" in col_limpa: mapeamento_colunas[col] = "UF"
+        elif "nomecivil" in col_limpa or "nomecomplet" in col_limpa: mapeamento_colunas[col] = "Nome Civil"
+        elif "email" in col_limpa: mapeamento_colunas[col] = "E-mail"
         elif "nomejudaic" in col_limpa: mapeamento_colunas[col] = "Nome Judaico"
-        elif "telefon" in col_limpa: mapeamento_colunas[col] = "Telefone"
-        elif "perfil" in col_limpa: mapeamento_colunas[col] = "Perfil Identidade"
+        elif "numerodetelefone" in col_limpa or "telefon" in col_limpa: mapeamento_colunas[col] = "Número de telefone"
+        elif "perfil" in col_limpa: mapeamento_colunas[col] = "Perfil de Identidade"
         elif "vinculac" in col_limpa: mapeamento_colunas[col] = "Vinculação Comunitária"
-        elif "cep" in col_limpa: mapeamento_colunas[col] = "Cep"
-        elif "bairro" in col_limpa: mapeamento_colunas[col] = "Bairro"
-        elif "enderec" in col_limpa: mapeamento_colunas[col] = "Endereço Completo"
+        elif "enderec" in col_limpa or "logradour" in col_limpa: mapeamento_colunas[col] = "Endereço"
         elif "comentar" in col_limpa: mapeamento_colunas[col] = "Comentários"
 
     df = df.rename(columns=mapeamento_colunas)
 
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
-    if "Município" not in df.columns: df["Município"] = ""
 
-    df["Nome Civil"] = df["Nome Civil"].astype(str).str.strip()
-    df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
+    for c in df.columns:
+        df[c] = df[c].fillna("").astype(str).str.strip()
 
     headers_viacep = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "application/json"
     }
 
-    # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
-    menu = st.sidebar.radio(
-        "Selecione a Ação:", 
-        ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero"]
-    )
+    menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero"])
     st.sidebar.markdown("---")
 
-    # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
         busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
@@ -134,24 +122,18 @@ if st.session_state["acesso_liberado"]:
             with f_col1:
                 st.write(f"**Nome Civil:** {df.loc[p_idx, 'Nome Civil']}")
                 st.write(f"**Nome Judaico:** {df.loc[p_idx, 'Nome Judaico'] if df.loc[p_idx, 'Nome Judaico'].lower() != 'nan' else ''}")
-                st.write(f"**Email:** {df.loc[p_idx, 'Email'] if df.loc[p_idx, 'Email'].lower() != 'nan' else ''}")
-                st.write(f"**Telefone:** {df.loc[p_idx, 'Telefone'] if df.loc[p_idx, 'Telefone'].lower() != 'nan' else ''}")
+                st.write(f"**E-mail:** {df.loc[p_idx, 'E-mail'] if df.loc[p_idx, 'E-mail'].lower() != 'nan' else ''}")
+                st.write(f"**Número de telefone:** {df.loc[p_idx, 'Número de telefone'] if df.loc[p_idx, 'Número de telefone'].lower() != 'nan' else ''}")
             with f_col2:
-                st.write(f"**Perfil Identidade:** {df.loc[p_idx, 'Perfil Identidade']}")
+                st.write(f"**Perfil de Identidade:** {df.loc[p_idx, 'Perfil de Identidade']}")
                 st.write(f"**Vinculação Comunitária:** {df.loc[p_idx, 'Vinculação Comunitária']}")
                 muni_txt = df.loc[p_idx, 'Município']
-                est_txt = df.loc[p_idx, 'Estado']
+                est_txt = df.loc[p_idx, 'UF']
                 st.write(f"**Localidade:** {muni_txt if muni_txt.lower() != 'nan' else ''} / {est_txt if est_txt.lower() != 'nan' else ''}")
             
-            v_en = df.loc[p_idx, 'Endereço Completo']
-            v_br = df.loc[p_idx, 'Bairro']
-            v_cp = df.loc[p_idx, 'Cep']
-            
+            v_en = df.loc[p_idx, 'Endereço']
             txt_en = v_en if v_en.lower() != 'nan' else 'Não preenchido'
-            txt_br = v_br if v_br.lower() != 'nan' else 'Não preenchido'
-            txt_cp = v_cp if v_cp.lower() != 'nan' else 'Não preenchido'
-            
-            st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
+            st.info(f"📍 **Endereço Completo:** {txt_en}")
             
             v_com = df.loc[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if v_com.lower() != 'nan' else ""
@@ -172,14 +154,13 @@ if st.session_state["acesso_liberado"]:
             if not registro_filtrado.empty:
                 idx_real_salvamento = int(registro_filtrado.index[0])
 
-                st.markdown("### 🏢 Validação Postal Geográfica")
-                v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
-                cep_i = st.text_input("Digite ou altere o CEP residencial (8 números):", value=v_c if v_c.lower() != "nan" else "", max_chars=8)
+                st.markdown("### 🏢 Validação Postal Geográfica (Opcional para capturar Município/UF via CEP)")
+                cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
                 
                 rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
-                if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
+                if cep_busca.strip().isdigit() and len(cep_busca.strip()) == 8:
                     try:
-                        req = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/", headers=headers_viacep, timeout=4)
+                        req = requests.get(f"https://viacep.com.br{cep_busca.strip()}/json/", headers=headers_viacep, timeout=4)
                         if req.status_code == 200:
                             j_cep = req.json()
                             if "erro" not in j_cep:
@@ -191,36 +172,29 @@ if st.session_state["acesso_liberado"]:
                     except Exception: pass
 
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
-                v_est = str(df.at[idx_real_salvamento, "Estado"]).strip()
-                v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
-                v_end_completo_antigo = str(df.at[idx_real_salvamento, "Endereço Completo"]).strip()
+                v_est = str(df.at[idx_real_salvamento, "UF"]).strip()
+                v_end_antigo = str(df.at[idx_real_salvamento, "Endereço"]).strip()
                 v_com_antigo = str(df.at[idx_real_salvamento, "Comentários"]).strip()
-                
-                rua_vazia_padrao = v_end_completo_antigo
-                if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
-                    rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
 
                 with st.form("form_gps_editar_real"):
                     col_esq, col_dir = st.columns(2)
                     with col_esq:
                         st.markdown("### 👤 Dados de Identificação")
-                        muni_i = st.text_input("Município de Residência:", value=cid_auto if cid_auto else (v_muni if v_muni.lower() != "nan" else ""))
-                        estado_i = st.text_input("Estado / UF:", value=uf_auto if uf_auto else (v_est if v_est.lower() != "nan" else ""))
-                        email_i = st.text_input("E-mail de Contato:", value=str(df.at[idx_real_salvamento, "Email"]) if str(df.at[idx_real_salvamento, "Email"]).lower() != "nan" else "")
+                        email_i = st.text_input("E-mail de Contato:", value=str(df.at[idx_real_salvamento, "E-mail"]) if str(df.at[idx_real_salvamento, "E-mail"]).lower() != "nan" else "")
                         nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(df.at[idx_real_salvamento, "Nome Judaico"]) if str(df.at[idx_real_salvamento, "Nome Judaico"]).lower() != "nan" else "")
-                        tel_i = st.text_input("Telefone / WhatsApp:", value=str(df.at[idx_real_salvamento, "Telefone"]) if str(df.at[idx_real_salvamento, "Telefone"]).lower() != "nan" else "")
+                        tel_i = st.text_input("Número de telefone:", value=str(df.at[idx_real_salvamento, "Número de telefone"]) if str(df.at[idx_real_salvamento, "Número de telefone"]).lower() != "nan" else "")
                         
-                    with col_dir:
-                        st.markdown("### 📜 Identidade Cultural")
                         lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
-                        v_p = str(df.at[idx_real_salvamento, "Perfil Identidade"]).strip()
+                        v_p = str(df.at[idx_real_salvamento, "Perfil de Identidade"]).strip()
                         idx_p = lista_perfis.index(v_p) if v_p in lista_perfis else 2
-                        perfil_i = st.selectbox("Perfil Identidade:", lista_perfis, index=idx_p)
+                        perfil_i = st.selectbox("Perfil de Identidade:", lista_perfis, index=idx_p)
                         vinculo_i = st.text_input("Vinculação Comunitária:", value=str(df.at[idx_real_salvamento, "Vinculação Comunitária"]))
-                        
-                        st.markdown("### 🏢 Ajuste do Endereço")
-                        rua_i = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_a if rua_a else (rua_vazia_padrao if rua_vazia_padrao.lower() != 'nan' else ''))
-                        bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
+                    
+                    with col_dir:
+                        st.markdown("### 🏢 Localização Geográfica")
+                        rua_i = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_a}, nº  - {bairro_auto}" if rua_a else (v_end_antigo if v_end_antigo.lower() != 'nan' else ''))
+                        muni_i = st.text_input("Município de Residência:", value=cid_auto if cid_auto else (v_muni if v_muni.lower() != "nan" else ""))
+                        estado_i = st.text_input("UF / Estado:", value=uf_auto if uf_auto else (v_est if v_est.lower() != "nan" else ""))
                     
                     st.markdown("---")
                     coment_i = st.text_area("🗒️ Comentários / Histórico Comunitário:", value=v_com_antigo if v_com_antigo.lower() != "nan" else "", height=100)
@@ -232,11 +206,10 @@ if st.session_state["acesso_liberado"]:
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            st.success("🎉 Linha estruturada! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar no seu Excel.")
-                            # Atualizado cabeçalho para Nome Civil
-                            df_copia = pd.DataFrame([[muni_i, estado_i, nome_alvo, email_i, nome_j_i, tel_i, perfil_i, vinculo_i, cep_i, bairro_i, rua_i, coment_i]], 
-                                                    columns=["Município", "Estado", "Nome Civil", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
-                            st.dataframe(df_copia, use_container_width=True)
+                            st.success("🎉 Linha estruturada na nova ordem! Copie a tabela abaixo e cole na sua planilha do computador.")
+                            df_copia = pd.DataFrame([[nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], 
+                                                    columns=lista_colunas_obrigatorias)
+                            st.dataframe(df_copia, use_container_width=False)
             else:
                 st.error("Membro não localizado na base de dados.")
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
@@ -263,20 +236,18 @@ if st.session_state["acesso_liberado"]:
             col_esq, col_dir = st.columns(2)
             with col_esq:
                 st.markdown("### 👤 Informações Pessoais")
-                # 🌟 Mudança de rótulo para Nome Civil
                 n_nome = st.text_input("Nome Civil (Obrigatório):")
                 n_judaico = st.text_input("Nome Judaico / Hebraico:")
                 n_email = st.text_input("E-mail:")
-                n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
+                n_telefone = st.text_input("Número de telefone (WhatsApp com DDD):")
                 n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
                 n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
             
             with col_dir:
                 st.markdown("### 🏡 Ajuste do Endereço")
+                n_rua = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_n}, nº  - {bairro_n}" if rua_n else "")
                 n_muni = st.text_input("Município / Cidade:", value=muni_n)
-                n_estado = st.text_input("Estado / UF:", value=uf_n)
-                n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
-                n_bairro = st.text_input("Bairro:", value=bairro_n)
+                n_estado = st.text_input("UF / Estado:", value=uf_n)
             
             st.markdown("---")
             n_coment = st.text_area("🗒️ Comentários / Histórico Comunitário Inicial:", value="", height=100)
@@ -290,10 +261,10 @@ if st.session_state["acesso_liberado"]:
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
                     
-                    # Gera a tabela final com a nova ordem incluindo "Nome Civil"
-                    df_novo_membro_copia = pd.DataFrame([[n_muni, n_estado, n_nome.strip(), n_email, n_judaico, n_telefone, n_perfil, n_vinculo, n_cep, n_bairro, n_rua, n_coment]], 
-                                            columns=["Município", "Estado", "Nome Civil", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
-                    st.dataframe(df_novo_membro_copia, use_container_width=True)
+                    # Gera a tabela final respeitando a nova ordenação do Google Forms (Município e UF no fim)
+                    df_novo_membro_copia = pd.DataFrame([[n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], 
+                                            columns=lista_colunas_obrigatorias)
+                    st.dataframe(df_novo_membro_copia, use_container_width=False)
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
