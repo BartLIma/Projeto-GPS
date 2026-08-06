@@ -22,7 +22,6 @@ senha_correta = "ditre123"
 if "acesso_liberado" not in st.session_state:
     st.session_state["acesso_liberado"] = False
 
-# Inicializa variáveis de controle de estado para matar o loop infinito da busca
 if "indice_pessoa_consultada" not in st.session_state:
     st.session_state["indice_pessoa_consultada"] = None
 
@@ -42,28 +41,33 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro da base 'projeto_gps.csv'
+    # Carregamento resiliente do arquivo projeto_gps.csv
     try:
-        df = pd.read_csv(
-            "projeto_gps.csv",
-            sep=";",   
-            encoding="utf-8-sig",
-            dtype=str,
-            skip_blank_lines=True
-        )
+        df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
-        df = pd.read_csv(
-            "projeto_gps.csv",
-            sep=",",   
-            encoding="utf-8-sig",
-            dtype=str,
-            skip_blank_lines=True
-        )
+        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
         
-    df.columns = df.columns.str.strip().str.replace('﻿', '')
     df = df.dropna(how="all")
 
-    # 🛡️ TRAVA MESTRE: Garante nativamente a existência de todas as colunas obrigatórias
+    # 🌟 MAPEAMENTO INTELIGENTE: Renomeia as colunas da planilha para o padrão exato do código,
+    # ignorando maiúsculas, minúsculas, hífens ou espaços extras que vierem do Excel.
+    mapeamento_colunas = {}
+    for col in df.columns:
+        col_limpa = col.strip().lower().replace("-", "").replace(" ", "")
+        if "municip" in col_limpa: mapeamento_colunas[col] = "Município"
+        elif "nomecomplet" in col_limpa: mapeamento_colunas[col] = "Nome Completo"
+        elif "email" in col_limpa: mapeamento_colunas[col] = "Email"
+        elif "nomejudaic" in col_limpa: mapeamento_colunas[col] = "Nome Judaico"
+        elif "telefon" in col_limpa: mapeamento_colunas[col] = "Telefone"
+        elif "perfil" in col_limpa: mapeamento_colunas[col] = "Perfil Identidade"
+        elif "vinculac" in col_limpa: mapeamento_colunas[col] = "Vinculação Comunitária"
+        elif "cep" in col_limpa: mapeamento_colunas[col] = "Cep"
+        elif "bairro" in col_limpa: mapeamento_colunas[col] = "Bairro"
+        elif "enderec" in col_limpa: mapeamento_colunas[col] = "Endereço Completo"
+
+    df = df.rename(columns=mapeamento_colunas)
+
+    # Cria as colunas padrão caso o Excel não possua alguma delas cadastrada
     lista_colunas_obrigatorias = ["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns:
@@ -74,10 +78,7 @@ if st.session_state["acesso_liberado"]:
 
     # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
-    menu = st.sidebar.radio(
-        "Selecione a Ação:",
-        ["🔍 Consultar por Nome", "📝 Cadastrar / Atualizar Endereços"]
-    )
+    menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Cadastrar / Atualizar Endereços"])
     st.sidebar.markdown("---")
 
     # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
@@ -103,8 +104,8 @@ if st.session_state["acesso_liberado"]:
                 
                 pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
                 
-                if p_idx := opcoes_pessoas.get(pessoa_sel):
-                    st.session_state["indice_pessoa_consultada"] = p_idx
+                if pessoa_sel and opcoes_pessoas[pessoa_sel] is not None:
+                    st.session_state["indice_pessoa_consultada"] = opcoes_pessoas[pessoa_sel]
             else:
                 st.session_state["indice_pessoa_consultada"] = None
                 st.warning("Nenhuma pessoa foi localizada com esse nome na base de dados.")
@@ -112,7 +113,7 @@ if st.session_state["acesso_liberado"]:
             st.session_state["indice_pessoa_consultada"] = None
             st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta cadastral.")
 
-        # 🌟 CORREÇÃO DO ERRO: Uso de .get() e tratamento individual contra instabilidades de colunas
+        # Exibição corrigida e estável da Ficha Cadastral com dados limpos
         if st.session_state["indice_pessoa_consultada"] is not None:
             p_idx = st.session_state["indice_pessoa_consultada"]
             st.markdown("---")
@@ -133,6 +134,8 @@ if st.session_state["acesso_liberado"]:
                 st.write(f"**Município de Residência:** {df.loc[p_idx, 'Município']}")
                 v_br = df.loc[p_idx, "Bairro"]
                 st.write(f"**Bairro:** {v_br if pd.notna(v_br) and str(v_br).lower() != 'nan' else ''}")
+                v_cp = df.loc[p_idx, "Cep"]
+                st.write(f"**CEP:** {v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else ''}")
             
             v_en = df.loc[p_idx, "Endereço Completo"]
             st.info(f"📍 **Endereço Completo:** {v_en if pd.notna(v_en) and str(v_en).lower() != 'nan' else 'Não preenchido'}")
@@ -223,23 +226,20 @@ if st.session_state["acesso_liberado"]:
                     if not aceite_lgpd:
                         st.error("❌ Gravação cancelada! Você precisa marcar a caixa do Termo de Consentimento da LGPD para realizar o cadastro.")
                     elif idx_cad is not None:
-                        # Força as colunas a existirem
-                        for col_nome in lista_colunas_obrigatorias:
-                            if col_nome not in df.columns: df[col_nome] = ""
-                        
                         # Grava na linha correspondente (.at)
-                        df.at[idx_cad[0], "Município"] = municipio_input
-                        df.at[idx_cad[0], "Email"] = email_contato
-                        df.at[idx_cad[0], "Nome Judaico"] = nome_judaico
-                        df.at[idx_cad[0], "Telefone"] = tel_contato
-                        df.at[idx_cad[0], "Perfil Identidade"] = perfil_identidade
-                        df.at[idx_cad[0], "Vinculação Comunitária"] = vinculo_comunidade
-                        df.at[idx_cad[0], "Cep"] = cep_input
-                        df.at[idx_cad[0], "Bairro"] = bairro
+                        df.at[idx_cad, "Município"] = municipio_input
+                        df.at[idx_cad, "Email"] = email_contato
+                        df.at[idx_cad, "Nome Judaico"] = nome_judaico
+                        df.at[idx_cad, "Telefone"] = tel_contato
+                        df.at[idx_cad, "Perfil Identidade"] = perfil_identidade
+                        df.at[idx_cad, "Vinculação Comunitária"] = vinculo_comunidade
+                        df.at[idx_cad, "Cep"] = cep_input
+                        df.at[idx_cad, "Bairro"] = bairro
                         
                         if endereco_gerado:
-                            df.at[idx_cad[0], "Endereço Completo"] = endereco_gerado
+                            df.at[idx_cad, "Endereço Completo"] = endereco_gerado
                         
+                        # Reordena o salvamento no CSV de forma rígida
                         ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
                         df = df[ordem_final_colunas]
                         
