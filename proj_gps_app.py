@@ -131,7 +131,6 @@ if st.session_state["acesso_liberado"]:
                 st.write(f"**Vinculação Comunitária:** {df.loc[p_idx, 'Vinculação Comunitária']}")
                 st.write(f"**Município de Residência:** {df.loc[p_idx, 'Município']}")
             
-            # 🌟 AJUSTE SOLICITADO: Faixa de endereço na parte inferior contendo os 3 campos organizados com marcadores 🌟
             v_en = df.loc[p_idx, 'Endereço Completo']
             v_br = df.loc[p_idx, 'Bairro']
             v_cp = df.loc[p_idx, 'Cep']
@@ -141,73 +140,74 @@ if st.session_state["acesso_liberado"]:
             txt_cp = v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else 'Não preenchido'
             
             st.info(f"📍 **Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
-        # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES (MUDANÇA DE LÓGICA DO CEP) ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
         df_validos = df[df["Nome Completo"].str.lower() != "nan"]
-        df_validos = df_validos[df_validos["Nome Completo"].str.strip() != ""]
+        df_validos = df_validos[df["Nome Completo"].str.strip() != ""]
         nomes_cadastrados = sorted(df_validos["Nome Completo"].unique())
         
         nome_alvo = st.selectbox("Selecione o Nome Completo para editar:", nomes_cadastrados, key="nome_cadastro")
         
         if nome_alvo:
-            # FILTRO ISOLADO MESTRE: Extrai o registro como um subset de texto puro para aniquilar o InvalidIndexError
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
-                # Captura o índice real da linha original para o salvamento final
                 idx_real_salvamento = int(registro_filtrado.index[0])
 
-                with st.form("form_gps_editar"):
+                # 🌟 SOLUÇÃO DO BUG: CEP agora fica FORA do st.form para disparar a API ViaCEP em tempo real! 🌟
+                st.markdown("### 🏢 Validação Postal Geográfica")
+                v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
+                cep_i = st.text_input("Digite ou altere o CEP residencial (8 números):", value=v_c if v_c.lower() != "nan" else "", max_chars=8)
+                
+                # Executa a busca instantânea assim que o usuário digita os 8 números
+                rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
+                if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
+                    try:
+                        j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/").json()
+                        if "erro" not in j_cep:
+                            rua_a = j_cep.get("logradouro", "")
+                            bairro_auto = j_cep.get("bairro", "")
+                            cid_auto = j_cep.get("localidade", "")
+                            uf_auto = j_cep.get("uf", "")
+                            st.success(f"📍 ViaCEP Localizado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
+                        else:
+                            st.warning("⚠️ CEP não localizado na base postal nacional.")
+                    except:
+                        st.error("⚠️ Erro ao conectar com o serviço de busca por CEP.")
+
+                # Recupera dados legados do arquivo para servir de padrão inicial caso a API não seja acionada
+                v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
+                v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
+                v_end_completo_antigo = str(df.at[idx_real_salvamento, "Endereço Completo"]).strip()
+                rua_vazia_padrao = ""
+                if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
+                    rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
+
+                # Agora abrimos o formulário apenas para os dados cadastrais e confirmação
+                with st.form("form_gps_editar_real"):
                     col_esq, col_dir = st.columns(2)
                     with col_esq:
                         st.markdown("### 👤 Dados de Identificação")
-                        
-                        # Extração textual ultra-segura sem ler índices posicionais do Pandas
-                        val_muni = str(registro_filtrado["Município"].values[0]).strip()
-                        val_email = str(registro_filtrado["Email"].values[0]).strip()
-                        val_nome_j = str(registro_filtrado["Nome Judaico"].values[0]).strip()
-                        val_tel = str(registro_filtrado["Telefone"].values[0]).strip()
-                        val_perfil_antigo = str(registro_filtrado["Perfil Identidade"].values[0]).strip()
-                        val_vinculo = str(registro_filtrado["Vinculação Comunitária"].values[0]).strip()
-
-                        # RESOLVIDO: O parâmetro 'value' agora lê as variáveis limpas acima, sem chamar df.at[]
-                        muni_i = st.text_input("Município de Residência:", value=val_muni if val_muni.lower() != "nan" else "")
-                        email_i = st.text_input("E-mail de Contato:", value=val_email if val_email.lower() != "nan" else "")
-                        nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=val_nome_j if val_nome_j.lower() != "nan" else "")
-                        tel_i = st.text_input("Telefone / WhatsApp:", value=val_tel if val_tel.lower() != "nan" else "")
+                        muni_i = st.text_input("Município de Residência:", value=cid_auto if cid_auto else (v_muni if v_muni.lower() != "nan" else ""))
+                        email_i = st.text_input("E-mail de Contato:", value=str(df.at[idx_real_salvamento, "Email"]) if pd.notna(df.at[idx_real_salvamento, "Email"]) and str(df.at[idx_real_salvamento, "Email"]).lower() != "nan" else "")
+                        nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(df.at[idx_real_salvamento, "Nome Judaico"]) if pd.notna(df.at[idx_real_salvamento, "Nome Judaico"]) and str(df.at[idx_real_salvamento, "Nome Judaico"]).lower() != "nan" else "")
+                        tel_i = st.text_input("Telefone / WhatsApp:", value=str(df.at[idx_real_salvamento, "Telefone"]) if pd.notna(df.at[idx_real_salvamento, "Telefone"]) and str(df.at[idx_real_salvamento, "Telefone"]).lower() != "nan" else "")
                         
                         lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
-                        idx_p = lista_perfis.index(val_perfil_antigo) if val_perfil_antigo in lista_perfis else 2
+                        v_p = str(df.at[idx_real_salvamento, "Perfil Identidade"]).strip()
+                        idx_p = lista_perfis.index(v_p) if v_p in lista_perfis else 2
                         perfil_i = st.selectbox("Perfil Identidade:", lista_perfis, index=idx_p)
                         
-                        vinculo_i = st.text_input("Vinculação Comunitária:", value=val_vinculo if val_vinculo.lower() != "nan" else "Isolado (Sem comunidade)")
+                        v_v = str(df.at[idx_real_salvamento, "Vinculação Comunitária"]).strip()
+                        vinculo_i = st.text_input("Vinculação Comunitária:", value=v_v if v_v.lower() != "nan" else "Isolado (Sem comunidade)")
                     
                     with col_dir:
-                        st.markdown("### 🏢 Endereço Coletado via CEP")
-                        val_cep = str(registro_filtrado["Cep"].values[0]).strip()
-                        cep_i = st.text_input("CEP (Apenas 8 números):", value=val_cep if val_cep.lower() != "nan" else "", max_chars=8)
-                        
-                        rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
-                        if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
-                            try:
-                                j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/").json()
-                                if "erro" not in j_cep:
-                                    rua_a, bairro_auto, cid_auto, uf_auto = j_cep.get("logradouro", ""), j_cep.get("bairro", ""), j_cep.get("localidade", ""), j_cep.get("uf", "")
-                                    st.caption(f"📍 Mapeado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
-                            except: pass
-                        
-                        val_end_antigo = str(registro_filtrado["Endereço Completo"].values[0]).strip()
-                        rua_vazia_padrao = ""
-                        if val_end_antigo and ", nº" in val_end_antigo:
-                            rua_vazia_padrao = val_end_antigo.split(", nº")[0]
-                            
+                        st.markdown("### 🏢 Ajuste Fino do Endereço")
                         rua_i = st.text_input("Logradouro (Rua/Avenida):", value=rua_a if rua_a else rua_vazia_padrao)
                         num_i = st.text_input("Número / Complemento / Casa:")
-                        
-                        val_bairro_antigo = str(registro_filtrado["Bairro"].values[0]).strip()
-                        bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (val_bairro_antigo if val_bairro_antigo.lower() != "nan" else ""))
+                        bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
                     
                     st.markdown("---")
                     aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
@@ -216,7 +216,6 @@ if st.session_state["acesso_liberado"]:
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            # Gravação direta forçada na linha correta usando a chave unificada
                             df.at[idx_real_salvamento, "Município"] = muni_i
                             df.at[idx_real_salvamento, "Email"] = email_i
                             df.at[idx_real_salvamento, "Nome Judaico"] = nome_j_i
@@ -229,7 +228,6 @@ if st.session_state["acesso_liberado"]:
                             if rua_i: 
                                 df.at[idx_real_salvamento, "Endereço Completo"] = f"{rua_i}, nº {num_i}"
                             
-                            # Salva a base estruturada
                             df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                             st.success("Cadastro atualizado com sucesso!")
                             st.balloons()
@@ -241,59 +239,18 @@ if st.session_state["acesso_liberado"]:
         st.title("🆕 Criar Novo Cadastro Comunitário")
         st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
         
-        with st.form("form_gps_novo"):
-            col_esq, col_dir = st.columns(2)
-            with col_esq:
-                st.markdown("### 👤 Informações Pessoais")
-                n_nome = st.text_input("Nome Completo Civil (Obrigatório):")
-                n_judaico = st.text_input("Nome Judaico / Hebraico:")
-                n_email = st.text_input("E-mail:")
-                n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
-                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"])
-                n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
-            
-            with col_dir:
-                st.markdown("### 🏢 Endereço Residencial")
-                n_cep = st.text_input("Digite o CEP (Apenas 8 números):", max_chars=8)
-                n_muni = st.text_input("Município / Cidade:")
-                
-                rua_n, bairro_n, uf_n = "", "", "PB"
-                if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
-                    try:
-                        j_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/").json()
-                        if "erro" not in j_n:
-                            rua_n, bairro_n, n_muni, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
-                            st.caption(f"📍 Localizado: {rua_n}, {bairro_n} - {n_muni}/{uf_n}")
-                    except: pass
-                
-                n_rua = st.text_input("Logradouro (Rua/Avenida):", value=rua_n)
-                n_numero = st.text_input("Número / Complemento:")
-                n_bairro = st.text_input("Bairro:", value=bairro_n)
-            
-            st.markdown("---")
-            n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
-            
-            if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
-                if not n_nome.strip(): 
-                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: 
-                    st.error("Você precisa aceitar os termos da LGPD.")
-                else:
-                    n_endereco_completo = f"{n_rua}, nº {n_numero}" if n_rua else ""
-                    nova_linha = {
-                        "Município": n_muni, "Nome Completo": n_nome.strip(), "Email": n_email,
-                        "Nome Judaico": n_judaico, "Telefone": n_telefone, "Perfil Identidade": n_perfil,
-                        "Vinculação Comunitária": n_vinculo, "Cep": n_cep, "Bairro": n_bairro,
-                        "Endereço Completo": n_endereco_completo
-                    }
-                    df = pd.concat([df, pd.DataFrame([nova_linha])], ignore_index=True)
-                    df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+        # Mantendo a lógica fora do form também na criação para o CEP voar alto!
+        st.markdown("### 🏢 Validação Postal")
+        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
+        rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
+        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
+            try:
+                j_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/").json()
+                if "erro" not in j_n:
+                    rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
+                    st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
+            except: pass
 
-    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
-    elif menu == "🆕 Criar Novo Cadastro do Zero":
-        st.title("🆕 Criar Novo Cadastro Comunitário")
-        st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
-        
         with st.form("form_gps_novo"):
             col_esq, col_dir = st.columns(2)
             with col_esq:
@@ -306,19 +263,8 @@ if st.session_state["acesso_liberado"]:
                 n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
             
             with col_dir:
-                st.markdown("### 🏢 Endereço Residencial")
-                n_cep = st.text_input("Digite o CEP (Apenas 8 números):", max_chars=8)
-                n_muni = st.text_input("Município / Cidade:")
-                
-                rua_n, bairro_n, uf_n = "", "", "PB"
-                if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
-                    try:
-                        j_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/").json()
-                        if "erro" not in j_n:
-                            rua_n, bairro_n, n_muni, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
-                            st.caption(f"📍 Localizado: {rua_n}, {bairro_n} - {n_muni}/{uf_n}")
-                    except: pass
-                
+                st.markdown("### 🏡 Ajuste Fino do Endereço")
+                n_muni = st.text_input("Município / Cidade:", value=muni_n)
                 n_rua = st.text_input("Logradouro (Rua/Avenida):", value=rua_n)
                 n_numero = st.text_input("Número / Complemento:")
                 n_bairro = st.text_input("Bairro:", value=bairro_n)
@@ -327,10 +273,8 @@ if st.session_state["acesso_liberado"]:
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
             if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
-                if not n_nome.strip(): 
-                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: 
-                    st.error("Você precisa aceitar os termos da LGPD.")
+                if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     n_endereco_completo = f"{n_rua}, nº {n_numero}" if n_rua else ""
                     nova_linha = {
@@ -340,7 +284,6 @@ if st.session_state["acesso_liberado"]:
                         "Endereço Completo": n_endereco_completo
                     }
                     df = pd.concat([df, pd.DataFrame([nova_linha])], ignore_index=True)
-                    df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                     st.success(f"🎉 {n_nome} foi cadastrado com sucesso no banco de dados GPS!")
                     st.balloons()
 
