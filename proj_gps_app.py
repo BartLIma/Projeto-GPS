@@ -43,7 +43,7 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro da base de dados projeto_gps.csv
+    # Carregamento seguro do arquivo projeto_gps.csv
     try:
         df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
@@ -68,7 +68,7 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Lista de colunas obrigatórias conforme estrutura de negócio
+    # Lista de colunas obrigatórias
     lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns:
@@ -79,7 +79,7 @@ if st.session_state["acesso_liberado"]:
     df["Nome Completo"] = df["Nome Completo"].astype(str).str.strip()
     df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
-    # Cabeçalho completo para evitar que o servidor do ViaCEP bloqueie as chamadas em nuvem
+    # Cabeçalho completo para evitar bloqueios da API de CEP
     headers_viacep = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         "Accept": "application/json"
@@ -90,6 +90,20 @@ if st.session_state["acesso_liberado"]:
     menu = st.sidebar.radio(
         "Selecione a Ação:", 
         ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero"]
+    )
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📥 Exportação de Segurança")
+
+    # 🌟 ADICIONADO AQUI: Botão mestre de Download no menu lateral para extrair os dados salvos na nuvem 🌟
+    ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
+    csv_atualizado_nuvem = df[ordem_final_colunas].to_csv(sep=";", index=False, encoding="utf-8-sig").encode("utf-8-sig")
+    
+    st.sidebar.download_button(
+        label="📥 Baixar Base de Dados Atualizada",
+        data=csv_atualizado_nuvem,
+        file_name="projeto_gps_atualizado.csv",
+        mime="text/csv",
+        use_container_width=True
     )
     st.sidebar.markdown("---")
 
@@ -147,7 +161,7 @@ if st.session_state["acesso_liberado"]:
             
             st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
 
-         # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
@@ -167,7 +181,6 @@ if st.session_state["acesso_liberado"]:
                 v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
                 cep_i = st.text_input("Digite ou altere o CEP residencial (8 números):", value=v_c if v_c.lower() != "nan" else "", max_chars=8)
                 
-                # Executa a busca na API com tratamento de erros preventivo
                 rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
                 if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
                     try:
@@ -189,7 +202,6 @@ if st.session_state["acesso_liberado"]:
                 v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
                 v_end_completo_antigo = str(df.at[idx_real_salvamento, "Endereço Completo"]).strip()
                 
-                # 🌟 MELHORIA SOLICITADA: Faz o logradouro antigo salvo reaparecer na caixa de texto se a API falhar 🌟
                 rua_vazia_padrao = v_end_completo_antigo
                 if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
                     rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
@@ -213,7 +225,6 @@ if st.session_state["acesso_liberado"]:
                     
                     with col_dir:
                         st.markdown("### 🏢 Ajuste do Endereço")
-                        # 🌟 MELHORIA SOLICITADA: Campo unificado de Logradouro (Sem número avulso) 🌟
                         rua_i = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_a if rua_a else (rua_vazia_padrao if rua_vazia_padrao.lower() != 'nan' else ''))
                         bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
                     
@@ -238,16 +249,17 @@ if st.session_state["acesso_liberado"]:
                             df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                             st.success("Cadastro atualizado com sucesso!")
                             st.balloons()
+                            st.rerun()
             else:
                 st.error("Membro não localizado na base de dados.")
 
-    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
+        # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
         st.title("🆕 Criar Novo Cadastro Comunitário")
         st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
         
         st.markdown("### 🏢 Validação Postal")
-        n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
+        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
         rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
         if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
             try:
@@ -283,44 +295,23 @@ if st.session_state["acesso_liberado"]:
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
             if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
-                if not n_nome.strip(): 
-                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: 
-                    st.error("Você precisa aceitar os termos da LGPD.")
+                if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    # 🌟 CORREÇÃO DEFINITIVA: Cria a linha em formato de dicionário puro
-                    nova_linha_dict = {
-                        "Município": str(n_muni).strip(),
-                        "Nome Completo": str(n_nome).strip(),
-                        "Email": str(n_email).strip(),
-                        "Nome Judaico": str(n_judaico).strip(),
-                        "Telefone": str(n_telefone).strip(),
-                        "Perfil Identidade": str(n_perfil).strip(),
-                        "Vinculação Comunitária": str(n_vinculo).strip(),
-                        "Cep": str(n_cep).strip(),
-                        "Bairro": str(n_bairro).strip(),
-                        "Endereço Completo": str(n_rua).strip()
-                    }
+                    proximo_indice = len(df)
                     
-                    # Converte o dicionário em DataFrame de uma linha
-                    df_nova_linha = pd.DataFrame([nova_linha_dict])
+                    df.at[proximo_indice, "Município"] = str(n_muni).strip()
+                    df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
+                    df.at[proximo_indice, "Email"] = str(n_email).strip()
+                    df.at[proximo_indice, "Nome Judaico"] = str(n_judaico).strip()
+                    df.at[proximo_indice, "Telefone"] = str(n_telefone).strip()
+                    df.at[proximo_indice, "Perfil Identidade"] = str(n_perfil).strip()
+                    df.at[proximo_indice, "Vinculação Comunitária"] = str(n_vinculo).strip()
+                    df.at[proximo_indice, "Cep"] = str(n_cep).strip()
+                    df.at[proximo_indice, "Bairro"] = str(n_bairro).strip()
+                    df.at[proximo_indice, "Endereço Completo"] = str(n_rua).strip()
                     
-                    # 🌟 SEGREDO DO SALVAMENTO: Abre o arquivo físico real, anexa a nova linha e reescreve imediatamente
-                    try:
-                        df_atual_arquivo = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str)
-                    except:
-                        df_atual_arquivo = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str)
-                    
-                    # Junta o novo membro com a tabela existente lida diretamente do disco
-                    df_final_salvar = pd.concat([df_atual_arquivo, df_nova_linha], ignore_index=True)
-                    
-                    # Força a ordem exata de colunas solicitada
-                    ordem_final_colunas = ["Município"] + ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
-                    df_final_salvar = df_final_salvar[ordem_final_colunas]
-                    
-                    # Sobrescreve o CSV em modo físico direto no repositório
-                    df_final_salvar.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
-                    
+                    df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                     st.success(f"🎉 {n_nome} foi gravado com sucesso no banco de dados GPS!")
                     st.balloons()
                     st.rerun()
