@@ -43,7 +43,7 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carrega a base atual do repositório (Para servir de consulta ou base de edição)
+    # Carregamento seguro do arquivo projeto_gps.csv
     try:
         df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
@@ -65,10 +65,12 @@ if st.session_state["acesso_liberado"]:
         elif "cep" in col_limpa: mapeamento_colunas[col] = "Cep"
         elif "bairro" in col_limpa: mapeamento_colunas[col] = "Bairro"
         elif "enderec" in col_limpa: mapeamento_colunas[col] = "Endereço Completo"
+        elif "comentar" in col_limpa: mapeamento_colunas[col] = "Comentários" # Adicionado o mapeamento
 
     df = df.rename(columns=mapeamento_colunas)
 
-    lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
+    # 🌟 Adicionado "Comentários" na lista de colunas obrigatórias
+    lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
     if "Município" not in df.columns: df["Município"] = ""
@@ -142,9 +144,14 @@ if st.session_state["acesso_liberado"]:
             txt_cp = v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else 'Não preenchido'
             
             st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
+            
+            # 🌟 EXIBIÇÃO DO CAMPO COMENTÁRIOS NA CONSULTA 🌟
+            v_com = df.loc[p_idx, 'Commentarios' if 'Commentarios' in df.columns else 'Comentários']
+            txt_com = str(v_com).strip() if pd.notna(v_com) and str(v_com).lower() != 'nan' else ""
+            st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
-        st.subheader("📝 Editar Cadastro Comunitário") # Título poluidor removido, mantido subheader discreto
+        st.subheader("📝 Editar Cadastro Comunitário")
         
         df_validos = df[df["Nome Completo"].str.lower() != "nan"]
         df_validos = df_validos[df_validos["Nome Completo"].str.strip() != ""]
@@ -156,7 +163,7 @@ if st.session_state["acesso_liberado"]:
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
-                idx_real_salvamento = int(registro_filtrado.index[0])
+                idx_real_salvamento = int(registro_filtrado.index)
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
@@ -179,10 +186,11 @@ if st.session_state["acesso_liberado"]:
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
                 v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
                 v_end_completo_antigo = str(df.at[idx_real_salvamento, "Endereço Completo"]).strip()
+                v_com_antigo = str(df.at[idx_real_salvamento, "Comentários"]).strip()
                 
                 rua_vazia_padrao = v_end_completo_antigo
                 if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
-                    rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
+                    rua_vazia_padrao = v_end_completo_antigo.split(", nº")
 
                 with st.form("form_gps_editar_real"):
                     col_esq, col_dir = st.columns(2)
@@ -204,28 +212,28 @@ if st.session_state["acesso_liberado"]:
                         rua_i = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_a if rua_a else (rua_vazia_padrao if rua_vazia_padrao.lower() != 'nan' else ''))
                         bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
                     
+                    # 🌟 INSERÇÃO DO CAMPO COMENTÁRIOS NO FORMULÁRIO DE EDIÇÃO 🌟
+                    st.markdown("---")
+                    coment_i = st.text_area("🗒️ Comentários / Histórico Comunitário:", value=v_com_antigo if v_com_antigo.lower() != "nan" else "", height=100)
+                    
                     st.markdown("---")
                     aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
                     
-                    # Processa a string sem tentar salvar no arquivo local da nuvem
                     if st.form_submit_button("⚙️ Processar Linha Alterada para o Excel", use_container_width=True):
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            st.success("🎉 Linha estruturada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar na sua planilha do computador.")
+                            st.success("🎉 Linha estruturada! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar no seu Excel.")
                             
-                            # Cria a string tabulada ideal para a colagem de colunas no Excel
-                            dados_copia_excel = f"{muni_i}\t{nome_alvo}\t{email_i}\t{nome_j_i}\t{tel_i}\t{perfil_i}\t{vinculo_i}\t{cep_i}\t{bairro_i}\t{rua_i}"
-                            
-                            # Exibe no formato st.dataframe que possui o botão em prancheta nativo de cópia no canto superior direito
-                            df_copia = pd.DataFrame([[muni_i, nome_alvo, email_i, nome_j_i, tel_i, perfil_i, vinculo_i, cep_i, bairro_i, rua_i]], 
-                                                    columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"])
+                            # Exibe no formato st.dataframe estruturado com o campo Comentários incluído
+                            df_copia = pd.DataFrame([[muni_i, nome_alvo, email_i, nome_j_i, tel_i, perfil_i, vinculo_i, cep_i, bairro_i, rua_i, coment_i]], 
+                                                    columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
                             st.dataframe(df_copia, use_container_width=True)
             else:
                 st.error("Membro não localizado na base de dados.")
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
-        st.subheader("🆕 Criar Novo Cadastro Comunitário") # Título poluidor removido, mantido subheader discreto
+        st.subheader("🆕 Criar Novo Cadastro Comunitário")
         
         st.markdown("### 🏢 Validação Postal")
         n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
@@ -260,6 +268,10 @@ if st.session_state["acesso_liberado"]:
                 n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
                 n_bairro = st.text_input("Bairro:", value=bairro_n)
             
+            # 🌟 INSERÇÃO DO CAMPO COMENTÁRIOS NO FORMULÁRIO DE NOVO CADASTRO 🌟
+            st.markdown("---")
+            n_coment = st.text_area("🗒️ Comentários / Histórico Comunitário Inicial:", value="", height=100)
+            
             st.markdown("---")
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
@@ -271,11 +283,10 @@ if st.session_state["acesso_liberado"]:
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
                     
-                    # Monta o DataFrame de uma linha estruturado na ordem exata de colunas da planilha do seu computador
-                    df_novo_membro_copia = pd.DataFrame([[n_muni, n_nome.strip(), n_email, n_judaico, n_telefone, n_perfil, n_vinculo, n_cep, n_bairro, n_rua]], 
-                                            columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"])
+                    # Monta o DataFrame de uma linha estruturado com os Comentários posicionados na última coluna
+                    df_novo_membro_copia = pd.DataFrame([[n_muni, n_nome.strip(), n_email, n_judaico, n_telefone, n_perfil, n_vinculo, n_cep, n_bairro, n_rua, n_coment]], 
+                                            columns=["Município", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
                     
-                    # Exibe o componente reativo na tela com cópia instantânea integrada
                     st.dataframe(df_novo_membro_copia, use_container_width=True)
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
