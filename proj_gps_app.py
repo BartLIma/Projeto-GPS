@@ -70,98 +70,103 @@ if menu == "🔍 Consultar Secretário":
             st.write(f"**Região de Saúde (CIR):** {regiao if pd.notna(regiao) else ''}")
         else:
             st.warning("Município não encontrado na base de dados.")
-# --- ABA 2: COLETA ONLINE E ATUALIZAÇÃO VIA FORMULÁRIO ---
-elif menu == "📝 Cadastrar Novo" or menu == "📝 Atualizar / Cadastrar Dados":
-    st.title("📝 Atualização Cadastral dos Secretários")
-    st.markdown("Selecione o seu município para carregar os dados atuais e preencha as atualizações abaixo.")
+    # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO ADAPTADO À LGPD ---
+    elif menu == "📝 Cadastrar / Atualizar Endereços":
+        st.title("📝 Formulário de Posicionamento e Identidade Sefardita")
+        st.markdown("Preencha os campos abaixo de forma consciente. Os dados coletados estão protegidos sob as diretrizes da LGPD.")
 
-    municipios_cad = sorted(df["Municipio"].dropna().unique())
-    muni_sel = st.selectbox("Selecione o seu município para atualizar:", municipios_cad, key="muni_cad")
-
-    if muni_sel:
-        # Filtra o registro existente na tabela para servir de base
-        res_cad = df[df["Municipio"].str.lower().str.strip() == muni_sel.lower().strip()]
-        idx_cad = res_cad.index[0] if not res_cad.empty else None
-
-        # Criação do formulário estruturado de captação
-        with st.form("form_cadastro"):
-            col_esq, col_dir = st.columns(2)
+        if "Município" in df.columns:
+            municipios_cad = sorted(df["Município"].dropna().unique())
+            muni_cad_sel = st.selectbox("Selecione o município de residência:", municipios_cad, key="muni_cadastro")
             
-            with col_esq:
-                novo_sec = st.text_input("Nome do Secretário:", value=str(df.loc[idx_cad, "Secretario"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Secretario"]) else "")
-                novo_email = st.text_input("E-mail Pessoal:", value=str(df.loc[idx_cad, "Email"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Email"]) else "")
-                novo_email_inst = st.text_input("E-mail Institucional:", value=str(df.loc[idx_cad, "Email Institucional"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Email Institucional"]) else "")
-                novo_tel = st.text_input("Telefone Celular:", value=str(df.loc[idx_cad, "Telefone"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Telefone"]) else "")
-                novo_tel_inst = st.text_input("Telefone Institucional:", value=str(df.loc[idx_cad, "Telefone Institucional"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Telefone Institucional"]) else "")
+            if muni_cad_sel:
+                res_cad = df[df["Município"].astype(str).str.lower().str.strip() == str(muni_cad_sel).lower().strip()]
+                idx_cad = res_cad.index if not res_cad.empty else None
 
-            with col_dir:
-                # 💡 O Pulo do Gato: Sistema de captação inteligente de Endereço por CEP
-                cep_input = st.text_input("Digite o CEP da Secretaria (Apenas números):", max_chars=8)
-                logradouro_auto = ""
-                bairro_auto = ""
-                localidade_auto = ""
-                uf_auto = ""
+                with st.form("form_gps_cadastro"):
+                    col_esq, col_dir = st.columns(2)
+                    
+                    with col_esq:
+                        st.markdown("### 👤 Informações de Contato")
+                        v_responsavel = str(df.loc[idx_cad, "Nome Completo"].values).strip() if idx_cad is not None and "Nome Completo" in df.columns and pd.notna(df.loc[idx_cad, "Nome Completo"].values) else ""
+                        v_email = str(df.loc[idx_cad, "Email"].values).strip() if idx_cad is not None and "Email" in df.columns and pd.notna(df.loc[idx_cad, "Email"].values) else ""
+                        v_tel = str(df.loc[idx_cad, "Telefone"].values).strip() if idx_cad is not None and "Telefone" in df.columns and pd.notna(df.loc[idx_cad, "Telefone"].values) else ""
+                        
+                        nome_resp = st.text_input("Nome Completo:", value=v_responsavel)
+                        email_contato = st.text_input("E-mail de Contato:", value=v_email)
+                        tel_contato = st.text_input("Telefone / WhatsApp (Com DDD):", value=v_tel)
 
-                # Consulta automática à API ViaCEP se o usuário digitar os 8 dígitos
-                if cep_input.strip().isdigit() and len(cep_input.strip()) == 8:
-                    try:
-                        requisicao = requests.get(f"https://viacep.com.br{cep_input.strip()}/json/")
-                        dados_cep = requisicao.json()
-                        if "erro" not in dados_cep:
-                            logradouro_auto = dados_cep.get("logradouro", "")
-                            bairro_auto = dados_cep.get("bairro", "")
-                            localidade_auto = dados_cep.get("localidade", "")
-                            uf_auto = dados_cep.get("uf", "")
-                            st.caption(f"📍 Endereço Encontrado: {logradouro_auto}, {bairro_auto} - {localidade_auto}/{uf_auto}")
+                        st.markdown("---")
+                        st.markdown("### 📜 Identidade e Afinidade Cultural")
+                        
+                        # 🌟 CAMPOS SOLICITADOS: Judeu, Bnei Anussim ou Simpatizante 🌟
+                        v_perfil = str(df.loc[idx_cad, "Perfil Identidade"].values).strip() if idx_cad is not None and "Perfil Identidade" in df.columns and pd.notna(df.loc[idx_cad, "Perfil Identidade"].values) else "Simpatizante"
+                        lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
+                        idx_perfil_padrao = lista_perfis.index(v_perfil) if v_perfil in lista_perfis else 2
+                        
+                        perfil_identidade = st.selectbox("Como você se identifica em relação ao Judaísmo?", lista_perfis, index=idx_perfil_padrao)
+                        
+                        v_vinculo = str(df.loc[idx_cad, "Vinculação Comunitária"].values).strip() if idx_cad is not None and "Vinculação Comunitária" in df.columns and pd.notna(df.loc[idx_cad, "Vinculação Comunitária"].values) else "Isolado (Sem comunidade)"
+                        vinculo_comunidade = st.text_input("Participa de alguma Comunidade/Sinagoga/Núcleo? (Se não, digite Isolado):", value=v_vinculo)
+
+                    with col_dir:
+                        st.markdown("### 🏢 Localização Geográfica")
+                        cep_input = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8)
+                        
+                        logradouro_auto = ""
+                        bairro_auto = ""
+                        localidade_auto = ""
+                        uf_auto = ""
+
+                        if json_cep := (requests.get(f"https://viacep.com.br{cep_input.strip()}/json/").json() if (cep_input.strip().isdigit() and len(cep_input.strip()) == 8) else None):
+                            if "erro" not in json_cep:
+                                logradouro_auto, bairro_auto, localidade_auto, uf_auto = json_cep.get("logradouro", ""), json_cep.get("bairro", ""), json_cep.get("localidade", ""), json_cep.get("uf", "")
+                                st.caption(f"📍 Endereço Mapeado: {logradouro_auto}, {bairro_auto} - {localidade_auto}/{uf_auto}")
+                            else:
+                                st.caption("⚠️ CEP não localizado na base postal.")
+
+                        rua = st.text_input("Logradouro (Rua/Avenida):", value=logradouro_auto if logradouro_auto else "")
+                        numero_predio = st.text_input("Número / Complemento / Casa:")
+                        bairro = st.text_input("Bairro:", value=bairro_auto if bairro_auto else "")
+                        
+                        endereco_gerado = f"{rua}, nº {numero_predio} - {bairro}, CEP: {cep_input}" if rua else ""
+
+                    # 🌟 TRAVA LEGAL DA LGPD: Caixa de consentimento obrigatória 🌟
+                    st.markdown("---")
+                    st.markdown("#### 🛡️ Termo de Consentimento e Privacidade (LGPD)")
+                    st.caption("De acordo com a Lei nº 13.709/2018 (LGPD), informamos que os seus dados de convicção religiosa e localização serão armazenados em ambiente seguro com a finalidade exclusiva de mapeamento e integração geo-comunitária, sendo proibido o compartilhamento público de dados identificáveis.")
+                    aceite_lgpd = st.checkbox("Estou ciente e dou meu consentimento livre e esclarecido para o tratamento dos meus dados pessoais sensíveis neste projeto.")
+
+                    botao_salvar_gps = st.form_submit_button("💾 Confirmar e Salvar no Banco de Dados GPS", use_container_width=True)
+                    
+                    if botao_salvar_gps:
+                        # Verifica se o usuário marcou a caixa da LGPD antes de salvar
+                        if not aceite_lgpd:
+                            st.error("❌ Gravação cancelada! Você precisa aceitar o Termo de Consentimento da LGPD para realizar o cadastro.")
+                        elif idx_cad is not None:
+                            # Cria colunas caso não existam no CSV
+                            for col_nome in ["Nome Completo", "Email", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Endereço Completo"]:
+                                if col_nome not in df.columns: df[col_nome] = ""
+                            
+                            # Grava os dados tratados
+                            df.loc[idx_cad, "Nome Completo"] = nome_resp
+                            df.loc[idx_cad, "Email"] = email_contato
+                            df.loc[idx_cad, "Telefone"] = tel_contato
+                            df.loc[idx_cad, "Perfil Identidade"] = perfil_identidade
+                            df.loc[idx_cad, "Vinculação Comunitária"] = vinculo_comunidade
+                            
+                            if endereco_gerado:
+                                df.loc[idx_cad, "Endereço Completo"] = endereco_gerado
+                            
+                            df.to_csv("cad_proj_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+                            st.success(f"🎉 Cadastro realizado com sucesso em conformidade com a LGPD para o município de {muni_cad_sel}!")
+                            st.balloons()
                         else:
-                            st.caption("⚠️ CEP não localizado na base postal nacional.")
-                    except:
-                        st.caption("⚠️ Falha temporária ao conectar com o serviço de CEP.")
-
-                # Campos de endereço preenchidos dinamicamente pela busca do CEP
-                rua = st.text_input("Logradouro (Rua/Av/Praça):", value=logradouro_auto if logradouro_auto else "")
-                numero_semus = st.text_input("Número do prédio da Secretaria:")
-                bairro = st.text_input("Bairro:", value=bairro_auto if bairro_auto else "")
-                
-                # Monta a string completa de endereço padronizada para o seu Excel
-                texto_endereco_final = f"{rua}, nº {numero_semus} - {bairro}" if rua else ""
-                
-                novo_fundo = st.text_input("Fundo de Saúde:", value=str(df.loc[idx_cad, "Fundo de Saúde"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Fundo de Saúde"]) else "")
-                novo_cnpj = st.text_input("CNPJ da Secretaria:", value=str(df.loc[idx_cad, "CNPJ"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "CNPJ"]) else "")
-                novo_regiao = st.text_input("Região de Saúde (CIR):", value=str(df.loc[idx_cad, "Região de Saúde"]) if idx_cad is not None and pd.notna(df.loc[idx_cad, "Região de Saúde"]) else "")
-
-            # Botão de envio disparado de dentro do formulário
-            botao_salvar = st.form_submit_button("💾 Confirmar e Salvar Alterações", use_container_width=True)
-            
-            if botao_salvar:
-                if idx_cad is not None:
-                    # Atualiza os dados na linha correspondente do DataFrame em memória
-                    df.loc[idx_cad, "Secretario"] = novo_sec
-                    df.loc[idx_cad, "Email"] = novo_email
-                    df.loc[idx_cad, "Email Institucional"] = novo_email_inst
-                    df.loc[idx_cad, "Telefone"] = novo_tel
-                    df.loc[idx_cad, "Telefone Institucional"] = novo_tel_inst
-                    df.loc[idx_cad, "Fundo de Saúde"] = novo_fundo
-                    df.loc[idx_cad, "CNPJ"] = novo_cnpj
-                    df.loc[idx_cad, "Região de Saúde"] = novo_regiao
-                    
-                    # Salva o novo endereço apenas se a pessoa preencheu os campos do CEP
-                    if texto_endereco_final:
-                        df.loc[idx_cad, "Endereço da SEMUS"] = texto_endereco_final
-                    
-                    # Sobrescreve o arquivo CSV original de forma automática e transparente
-                    df.to_csv("secretarios_cosems_pb.csv", sep=";", index=False, encoding="utf-8-sig")
-                    st.success(f"🎉 Dados do município de {muni_sel} atualizados com sucesso na base de dados!")
-                    st.balloons()
-                else:
-                    st.error("Erro interno: Falha ao mapear a linha do município selecionado.")
+                            st.error("Erro operacional: Linha de município inválida no CSV.")
+        else:
+            st.error("Erro crítico: A coluna 'Município' precisa existir no arquivo cad_proj_gps.csv.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
-st.markdown(
-    "<p style='text-align:right; font-size:12px; color:green;'>Bartolomeu Lima - Corecon-ES 1541</p>",
-    unsafe_allow_html=True
-)
-
-# Link de retorno integrado
-st.markdown("[⬅️ Voltar ao Menu](https://menu1app.streamlit.app/)")
+st.markdown("<p style='text-align:right; font-size:12px; color:gray;'>Bartolomeu Lima - Corecon-ES 1541</p>", unsafe_allow_html=True)
+st.markdown("[⬅️ Voltar ao Menu Principal](https://streamlit.app)")
