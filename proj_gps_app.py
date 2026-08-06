@@ -38,66 +38,83 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro da base 'projeto_gps.csv'
+    # 🌟 CORREÇÃO CRÍTICA: Força a leitura estritamente por PONTO E VÍRGULA (;) para separar as colunas perfeitamente
     try:
-        df = pd.read_csv(
-            "projeto_gps.csv",
-            sep=",",   
-            encoding="utf-8-sig",
-            dtype=str  # Lê tudo temporariamente como texto para evitar conflitos de tipos
-        )
-    except Exception:
         df = pd.read_csv(
             "projeto_gps.csv",
             sep=";",   
             encoding="utf-8-sig",
-            dtype=str
+            dtype=str,
+            skip_blank_lines=True
+        )
+    except Exception:
+        df = pd.read_csv(
+            "projeto_gps.csv",
+            sep=",",   
+            encoding="utf-8-sig",
+            dtype=str,
+            skip_blank_lines=True
         )
         
-    # Limpa todos os espaços das colunas
-    df.columns = df.columns.str.strip()
+    # Higieniza o lixo oculto do Excel nos cabeçalhos das colunas
+    df.columns = df.columns.str.strip().str.replace('﻿', '')
     
-    # 🌟 TRAVA DE SEGURANÇA MESTRE: Força a primeira coluna a se chamar 'Município'
-    # Isso elimina qualquer erro gerado pelo caractere invisível (BOM) do Excel
-    novas_colunas = list(df.columns)
-    novas_colunas[0] = "Município"
-    df.columns = novas_colunas
+    # Se por algum motivo o arquivo vir mista, força o rebatismo da primeira coluna para segurança
+    if len(df.columns) > 0:
+        lista_colunas = list(df.columns)
+        lista_colunas[0] = "Município"
+        df.columns = lista_colunas
+
+    # Remove linhas totalmente vazias ou nulas da tabela
+    df = df.dropna(how="all")
 
     # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio(
         "Selecione a Ação:",
-        ["🔍 Consultar Cadastro", "📝 Cadastrar / Atualizar Endereços"]
+        ["🔍 Consultar Cadastro", "📝 Cadastrar / Atas"]
     )
     st.sidebar.markdown("---")
 
-    # --- ABA 1: CONSULTA DO BANCO DE DADOS ---
+    # --- ABA 1: CONSULTA DO BANCO DE DADOS (Com caixa de texto pesquisável) ---
     if menu == "🔍 Consultar Cadastro":
         st.title("🔍 Consulta de Endereços e Contatos")
         
-        # Como forçamos o nome acima, este bloco sempre será verdadeiro
         if "Município" in df.columns:
+            # Limpa os dados de municípios e remove lixos de leitura
             df["Município"] = df["Município"].astype(str).str.strip()
-            municipios = sorted(df["Município"].dropna().unique())
-            if "nan" in municipios: municipios.remove("nan")
+            df = df[df["Município"].str.lower() != "nan"]
             
-            muni_sel = st.selectbox("Selecione o município para consultar:", municipios)
+            # 🌟 CORREÇÃO: Cria uma caixa de digitação em branco para buscar o município sem vir listado tudo junto
+            busca_municipio = st.text_input("Digite o nome ou parte do município para pesquisar:", value="")
             
-            if muni_sel:
-                resultado = df[df["Município"].str.lower() == muni_sel.lower().strip()]
+            if busca_municipio.strip():
+                # Filtra os municípios que contêm o texto digitado (busca parcial inteligente)
+                municipios_filtrados = df[df["Município"].str.lower().str.contains(busca_municipio.lower().strip())]["Município"].unique()
                 
-                if not resultado.empty:
-                    idx = resultado.index
-                    st.subheader(f"📍 Dados Cadastrais — {muni_sel}")
+                if len(municipios_filtrados) > 0:
+                    muni_sel = st.selectbox("Selecione o município exato encontrado:", sorted(municipios_filtrados))
                     
-                    # Exibe os campos na tela respeitando o layout limpo
-                    for col in df.columns:
-                        if col != "Município":
-                            val = df.loc[idx, col].values[0] # Pega o valor puro
-                            st.write(f"**{col}:** {val if pd.notna(val) and str(val).lower() != 'nan' else ''}")
+                    if muni_sel:
+                        resultado = df[df["Município"].str.lower() == muni_sel.lower().strip()]
+                        
+                        if not resultado.empty:
+                            idx = resultado.index[0] # Captura a linha de registro limpa
+                            st.subheader(f"📍 Dados Cadastrais — {muni_sel}")
+                            st.markdown("---")
+                            
+                            # Exibe as informações em formato de dicionário limpo na tela
+                            for col in df.columns:
+                                if col != "Município":
+                                    val = resultado.loc[idx, col]
+                                    val_exibir = str(val).strip() if pd.notna(val) and str(val).lower() != 'nan' else ""
+                                    st.write(f"**{col}:** {val_exibir}")
                 else:
-                    st.warning("Município selecionado não possui registros.")
-
+                    st.warning("Nenhum município correspondente foi localizado na base de dados.")
+            else:
+                st.info("💡 Por favor, digite o nome de uma cidade acima para realizar a consulta.")
+        else:
+            st.error("Erro crítico: A coluna 'Município' não foi detectada no arquivo projeto_gps.csv.")
     # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO (LGPD) ---
     elif menu == "📝 Cadastrar / Atualizar Endereços":
         st.title("📝 Formulário de Posicionamento e Identidade Sefardita")
