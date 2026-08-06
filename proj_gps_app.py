@@ -218,7 +218,7 @@ if st.session_state["acesso_liberado"]:
                         st.success("Cadastro atualizado com sucesso!")
                         st.balloons()
 
-             # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+                # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
@@ -229,11 +229,11 @@ if st.session_state["acesso_liberado"]:
         nome_alvo = st.selectbox("Selecione o Nome Completo para editar:", nomes_cadastrados, key="nome_cadastro")
         
         if nome_alvo:
-            # Isola o registro em um DataFrame próprio para ler os valores como string direta
+            # FILTRO ISOLADO MESTRE: Extrai o registro como um subset de texto puro para aniquilar o InvalidIndexError
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
-                # 🌟 CORREÇÃO: Pega o índice inteiro puro e padroniza para todas as gravações abaixo
+                # Captura o índice real da linha original para o salvamento final
                 idx_real_salvamento = int(registro_filtrado.index[0])
 
                 with st.form("form_gps_editar"):
@@ -241,34 +241,34 @@ if st.session_state["acesso_liberado"]:
                     with col_esq:
                         st.markdown("### 👤 Dados de Identificação")
                         
-                        # Extração segura usando .values[0] para pegar o texto puro sem indexadores numéricos do Pandas
-                        val_muni = registro_filtrado["Município"].values[0]
-                        val_email = registro_filtrado["Email"].values[0]
-                        val_nome_j = registro_filtrado["Nome Judaico"].values[0]
-                        val_tel = registro_filtrado["Telefone"].values[0]
+                        # Extração textual ultra-segura sem ler índices posicionais do Pandas
+                        val_muni = str(registro_filtrado["Município"].values[0]).strip()
+                        val_email = str(registro_filtrado["Email"].values[0]).strip()
+                        val_nome_j = str(registro_filtrado["Nome Judaico"].values[0]).strip()
+                        val_tel = str(registro_filtrado["Telefone"].values[0]).strip()
                         val_perfil_antigo = str(registro_filtrado["Perfil Identidade"].values[0]).strip()
-                        val_vinculo = registro_filtrado["Vinculação Comunitária"].values[0]
+                        val_vinculo = str(registro_filtrado["Vinculação Comunitária"].values[0]).strip()
 
-                        muni_i = st.text_input("Município de Residência:", value=str(val_muni) if pd.notna(val_muni) and str(val_muni).lower() != "nan" else "")
-                        email_i = st.text_input("E-mail de Contato:", value=str(val_email) if pd.notna(val_email) and str(val_email).lower() != "nan" else "")
-                        nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(val_nome_j) if pd.notna(val_nome_j) and str(val_nome_j).lower() != "nan" else "")
-                        tel_i = st.text_input("Telefone / WhatsApp:", value=str(val_tel) if pd.notna(val_tel) and str(val_tel).lower() != "nan" else "")
+                        # RESOLVIDO: O parâmetro 'value' agora lê as variáveis limpas acima, sem chamar df.at[]
+                        muni_i = st.text_input("Município de Residência:", value=val_muni if val_muni.lower() != "nan" else "")
+                        email_i = st.text_input("E-mail de Contato:", value=val_email if val_email.lower() != "nan" else "")
+                        nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=val_nome_j if val_nome_j.lower() != "nan" else "")
+                        tel_i = st.text_input("Telefone / WhatsApp:", value=val_tel if val_tel.lower() != "nan" else "")
                         
                         lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
                         idx_p = lista_perfis.index(val_perfil_antigo) if val_perfil_antigo in lista_perfis else 2
                         perfil_i = st.selectbox("Perfil Identidade:", lista_perfis, index=idx_p)
                         
-                        vinculo_i = st.text_input("Vinculação Comunitária:", value=str(val_vinculo) if pd.notna(val_vinculo) and str(val_vinculo).lower() != "nan" else "Isolado (Sem comunidade)")
+                        vinculo_i = st.text_input("Vinculação Comunitária:", value=val_vinculo if val_vinculo.lower() != "nan" else "Isolado (Sem comunidade)")
                     
                     with col_dir:
                         st.markdown("### 🏢 Endereço Coletado via CEP")
-                        val_cep = registro_filtrado["Cep"].values[0]
-                        cep_i = st.text_input("CEP (Apenas 8 números):", value=str(val_cep) if pd.notna(val_cep) and str(val_cep).lower() != "nan" else "", max_chars=8)
+                        val_cep = str(registro_filtrado["Cep"].values[0]).strip()
+                        cep_i = st.text_input("CEP (Apenas 8 números):", value=val_cep if val_cep.lower() != "nan" else "", max_chars=8)
                         
                         rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
                         if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
                             try:
-                                # CORREÇÃO: URL corrigida com /ws/ para o ViaCEP funcionar 100%
                                 j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/").json()
                                 if "erro" not in j_cep:
                                     rua_a, bairro_auto, cid_auto, uf_auto = j_cep.get("logradouro", ""), j_cep.get("bairro", ""), j_cep.get("localidade", ""), j_cep.get("uf", "")
@@ -288,11 +288,12 @@ if st.session_state["acesso_liberado"]:
                     
                     st.markdown("---")
                     aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
+                    
                     if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            # 🌟 CORREÇÃO: Grava tudo usando estritamente a variável idx_real_salvamento corrigida
+                            # Gravação direta forçada na linha correta usando a chave unificada
                             df.at[idx_real_salvamento, "Município"] = muni_i
                             df.at[idx_real_salvamento, "Email"] = email_i
                             df.at[idx_real_salvamento, "Nome Judaico"] = nome_j_i
@@ -305,7 +306,7 @@ if st.session_state["acesso_liberado"]:
                             if rua_i: 
                                 df.at[idx_real_salvamento, "Endereço Completo"] = f"{rua_i}, nº {num_i}"
                             
-                            # Reordena e salva as colunas de forma limpa no CSV
+                            # Salva a base estruturada
                             df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                             st.success("Cadastro atualizado com sucesso!")
                             st.balloons()
@@ -363,7 +364,6 @@ if st.session_state["acesso_liberado"]:
                         "Endereço Completo": n_endereco_completo
                     }
                     df = pd.concat([df, pd.DataFrame([nova_linha])], ignore_index=True)
-
                     df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                     st.success(f"🎉 {n_nome} foi cadastrado com sucesso no banco de dados GPS!")
                     st.balloons()
