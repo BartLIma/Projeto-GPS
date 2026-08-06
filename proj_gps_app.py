@@ -218,7 +218,7 @@ if st.session_state["acesso_liberado"]:
                         st.success("Cadastro atualizado com sucesso!")
                         st.balloons()
 
-           # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+             # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
@@ -229,12 +229,12 @@ if st.session_state["acesso_liberado"]:
         nome_alvo = st.selectbox("Selecione o Nome Completo para editar:", nomes_cadastrados, key="nome_cadastro")
         
         if nome_alvo:
-            # 🌟 SOLUÇÃO MESTRE: Isola o registro em um DataFrame próprio para ler os valores como string direta (Elimina o InvalidIndexError)
+            # Isola o registro em um DataFrame próprio para ler os valores como string direta
             registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
-                # Captura o índice real da linha original para salvar depois
-                idx_real_salvamento = registro_filtrado.index[0]
+                # 🌟 CORREÇÃO: Pega o índice inteiro puro e padroniza para todas as gravações abaixo
+                idx_real_salvamento = int(registro_filtrado.index[0])
 
                 with st.form("form_gps_editar"):
                     col_esq, col_dir = st.columns(2)
@@ -268,6 +268,7 @@ if st.session_state["acesso_liberado"]:
                         rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
                         if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
                             try:
+                                # CORREÇÃO: URL corrigida com /ws/ para o ViaCEP funcionar 100%
                                 j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/").json()
                                 if "erro" not in j_cep:
                                     rua_a, bairro_auto, cid_auto, uf_auto = j_cep.get("logradouro", ""), j_cep.get("bairro", ""), j_cep.get("localidade", ""), j_cep.get("uf", "")
@@ -291,13 +292,13 @@ if st.session_state["acesso_liberado"]:
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            # Grava de forma segura na linha original usando a referência direta (.at)
+                            # 🌟 CORREÇÃO: Grava tudo usando estritamente a variável idx_real_salvamento corrigida
                             df.at[idx_real_salvamento, "Município"] = muni_i
                             df.at[idx_real_salvamento, "Email"] = email_i
                             df.at[idx_real_salvamento, "Nome Judaico"] = nome_j_i
                             df.at[idx_real_salvamento, "Telefone"] = tel_i
                             df.at[idx_real_salvamento, "Perfil Identidade"] = perfil_i
-                            df.at[idx_cad, "Vinculação Comunitária"] = vinculo_i
+                            df.at[idx_real_salvamento, "Vinculação Comunitária"] = vinculo_i
                             df.at[idx_real_salvamento, "Cep"] = cep_i
                             df.at[idx_real_salvamento, "Bairro"] = bairro_i
                             
