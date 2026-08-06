@@ -115,7 +115,7 @@ if st.session_state["acesso_liberado"]:
                 st.warning("Nenhuma pessoa foi localizada com esse nome na base de dados.")
         else:
             st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta cadastral.")
-    # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO POR NOME (LGPD) ---
+       # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO POR NOME (LGPD) ---
     elif menu == "📝 Cadastrar / Atualizar Endereços":
         st.title("📝 Formulário de Posicionamento e Identidade Sefardita")
         st.markdown("Selecione o seu nome para atualizar o seu endereço ou preencher suas informações de afinidade comunitária.")
@@ -131,107 +131,108 @@ if st.session_state["acesso_liberado"]:
         
         if nome_alvo:
             res_cad = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
-            idx_cad = res_cad.index[0] if not res_cad.empty else None
+            idx_cad = res_cad.index if not res_cad.empty else None
 
-                with st.form("form_gps_cadastro"):
-                    col_esq, col_dir = st.columns(2)
+            # CORREÇÃO CRÍTICA DE INDENTAÇÃO: Alinhamento de escopo nivelado perfeitamente
+            with st.form("form_gps_cadastro"):
+                col_esq, col_dir = st.columns(2)
+                
+                with col_esq:
+                    st.markdown("### 👤 Informações de Contato e Identidade")
+                    v_municipio = str(df.loc[idx_cad, "Município"].values[0]).strip() if idx_cad is not None and "Município" in df.columns and pd.notna(df.loc[idx_cad, "Município"].values[0]) else ""
+                    v_email = str(df.loc[idx_cad, "Email"].values[0]).strip() if idx_cad is not None and "Email" in df.columns and pd.notna(df.loc[idx_cad, "Email"].values[0]) else ""
+                    v_nome_jud = str(df.loc[idx_cad, "Nome Judaico"].values[0]).strip() if idx_cad is not None and "Nome Judaico" in df.columns and pd.notna(df.loc[idx_cad, "Nome Judaico"].values[0]) else ""
+                    v_tel = str(df.loc[idx_cad, "Telefone"].values[0]).strip() if idx_cad is not None and "Telefone" in df.columns and pd.notna(df.loc[idx_cad, "Telefone"].values[0]) else ""
                     
-                    with col_esq:
-                        st.markdown("### 👤 Informações de Contato e Identidade")
-                        v_municipio = str(df.loc[idx_cad, "Município"]).strip() if idx_cad is not None and "Município" in df.columns and pd.notna(df.loc[idx_cad, "Município"]) else ""
-                        v_email = str(df.loc[idx_cad, "Email"]).strip() if idx_cad is not None and "Email" in df.columns and pd.notna(df.loc[idx_cad, "Email"]) else ""
-                        v_nome_jud = str(df.loc[idx_cad, "Nome Judaico"]).strip() if idx_cad is not None and "Nome Judaico" in df.columns and pd.notna(df.loc[idx_cad, "Nome Judaico"]) else ""
-                        v_tel = str(df.loc[idx_cad, "Telefone"]).strip() if idx_cad is not None and "Telefone" in df.columns and pd.notna(df.loc[idx_cad, "Telefone"]) else ""
-                        
-                        municipio_input = st.text_input("Município de Residência:", value=v_municipio if v_municipio.lower() != 'nan' else "")
-                        email_contato = st.text_input("E-mail de Contato:", value=v_email if v_email.lower() != 'nan' else "")
-                        nome_judaico = st.text_input("Nome Judaico / Hebraico (Se houver):", value=v_nome_jud if v_nome_jud.lower() != 'nan' else "")
-                        tel_contato = st.text_input("Telefone / WhatsApp (Com DDD):", value=v_tel if v_tel.lower() != 'nan' else "")
+                    municipio_input = st.text_input("Município de Residência:", value=v_municipio if v_municipio.lower() != 'nan' else "")
+                    email_contato = st.text_input("E-mail de Contato:", value=v_email if v_email.lower() != 'nan' else "")
+                    nome_judaico = st.text_input("Nome Judaico / Hebraico (Se houver):", value=v_nome_jud if v_nome_jud.lower() != 'nan' else "")
+                    tel_contato = st.text_input("Telefone / WhatsApp (Com DDD):", value=v_tel if v_tel.lower() != 'nan' else "")
 
-                        st.markdown("---")
-                        st.markdown("### 📜 Identidade e Afinidade Cultural")
-                        
-                        v_perfil = str(df.loc[idx_cad, "Perfil Identidade"]).strip() if idx_cad is not None and "Perfil Identidade" in df.columns and pd.notna(df.loc[idx_cad, "Perfil Identidade"]) else "Simpatizante"
-                        lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
-                        idx_perfil_padrao = lista_perfis.index(v_perfil) if v_perfil in lista_perfis else 2
-                        
-                        perfil_identidade = st.selectbox("Como você se identifica em relação ao Judaísmo?", lista_perfis, index=idx_perfil_padrao)
-                        
-                        v_vinculo = str(df.loc[idx_cad, "Vinculação Comunitária"]).strip() if idx_cad is not None and "Vinculação Comunitária" in df.columns and pd.notna(df.loc[idx_cad, "Vinculação Comunitária"]) else "Isolado (Sem comunidade)"
-                        vinculo_comunidade = st.text_input("Participa de alguma Comunidade/Sinagoga/Núcleo? (Se não, digite Isolado):", value=v_vinculo if v_vinculo.lower() != 'nan' else "Isolado (Sem comunidade)")
-
-                    with col_dir:
-                        st.markdown("### 🏢 Localização Geográfica")
-                        v_cep_antigo = str(df.loc[idx_cad, "Cep"]).strip() if idx_cad is not None and "Cep" in df.columns and pd.notna(df.loc[idx_cad, "Cep"]) else ""
-                        cep_input = st.text_input("Digite o CEP residencial (Apenas 8 números):", value=v_cep_antigo if v_cep_antigo.lower() != 'nan' else "", max_chars=8)
-                        
-                        logradouro_auto = ""
-                        bairro_auto = ""
-                        localidade_auto = ""
-                        uf_auto = ""
-
-                        if cep_input.strip().isdigit() and len(cep_input.strip()) == 8:
-                            try:
-                                json_cep = requests.get(f"https://viacep.com.br{cep_input.strip()}/json/").json()
-                                if "erro" not in json_cep:
-                                    logradouro_auto = json_cep.get("logradouro", "")
-                                    bairro_auto = json_cep.get("bairro", "")
-                                    localidade_auto = json_cep.get("localidade", "")
-                                    uf_auto = json_cep.get("uf", "")
-                                    st.caption(f"📍 Endereço Mapeado: {logradouro_auto}, {bairro_auto} - {localidade_auto}/{uf_auto}")
-                                else:
-                                    st.caption("⚠️ CEP não localizado na base postal.")
-                            except Exception:
-                                st.caption("⚠️ Erro de conexão com o servidor de busca postal.")
-
-                        rua = st.text_input("Logradouro (Rua/Avenida):", value=logradouro_auto if logradouro_auto else "")
-                        numero_predio = st.text_input("Número / Complemento / Casa:")
-                        
-                        v_bairro_antigo = str(df.loc[idx_cad, "Bairro"]).strip() if idx_cad is not None and "Bairro" in df.columns and pd.notna(df.loc[idx_cad, "Bairro"]) else ""
-                        bairro_final = bairro_auto if bairro_auto else v_bairro_antigo
-                        bairro = st.text_input("Bairro:", value=bairro_final if bairro_final.lower() != 'nan' else "")
-                        
-                        endereco_gerado = f"{rua}, nº {numero_predio}" if rua else ""
-
-                    # Trava legal da LGPD
                     st.markdown("---")
-                    st.markdown("#### 🛡️ Termo de Consentimento e Privacidade (LGPD)")
-                    st.caption("De acordo com a Lei nº 13.709/2018 (LGPD), informamos que os seus dados de convicção religiosa e localização serão armazenados em ambiente seguro com a finalidade exclusiva de mapeamento e integração geo-comunitária, sendo proibido o compartilhamento público de dados identificáveis.")
-                    aceite_lgpd = st.checkbox("Estou ciente e dou meu consentimento livre e esclarecido para o tratamento dos meus dados pessoais sensíveis neste projeto.")
-
-                    botao_salvar_gps = st.form_submit_button("💾 Confirmar e Salvar no Banco de Dados GPS", use_container_width=True)
+                    st.markdown("### 📜 Identidade e Afinidade Cultural")
                     
-                    if botao_salvar_gps:
-                        if not aceite_lgpd:
-                            st.error("❌ Gravação cancelada! Você precisa marcar a caixa do Termo de Consentimento da LGPD para realizar o cadastro.")
-                        elif idx_cad is not None:
-                            # Lista exata das colunas estruturadas solicitadas
-                            lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
-                            for col_nome in lista_colunas_obrigatorias:
-                                if col_nome not in df.columns: df[col_nome] = ""
-                            
-                            # Atualiza as variáveis correspondentes mantendo a chave estável
-                            df.at[idx_cad, "Município"] = municipio_input
-                            df.at[idx_cad, "Email"] = email_contato
-                            df.at[idx_cad, "Nome Judaico"] = nome_judaico
-                            df.at[idx_cad, "Telefone"] = tel_contato
-                            df.at[idx_cad, "Perfil Identidade"] = perfil_identidade
-                            df.at[idx_cad, "Vinculação Comunitária"] = vinculo_comunidade
-                            df.at[idx_cad, "Cep"] = cep_input
-                            df.at[idx_cad, "Bairro"] = bairro
-                            
-                            if endereco_gerado:
-                                df.at[idx_cad, "Endereço Completo"] = endereco_gerado
-                            
-                            # Reordena o salvamento no CSV exatamente no layout estruturado
-                            ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
-                            df = df[ordem_final_colunas]
-                            
-                            df.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
-                            st.success(f"🎉 Cadastro de {nome_alvo} atualizado com sucesso em conformidade com a LGPD!")
-                            st.balloons()
-                        else:
-                            st.error("Erro operacional: Linha de registro inválida no CSV.")
+                    v_perfil = str(df.loc[idx_cad, "Perfil Identidade"].values[0]).strip() if idx_cad is not None and "Perfil Identidade" in df.columns and pd.notna(df.loc[idx_cad, "Perfil Identidade"].values[0]) else "Simpatizante"
+                    lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
+                    idx_perfil_padrao = lista_perfis.index(v_perfil) if v_perfil in lista_perfis else 2
+                    
+                    perfil_identidade = st.selectbox("Como você se identifica em relação ao Judaísmo?", lista_perfis, index=idx_perfil_padrao)
+                    
+                    v_vinculo = str(df.loc[idx_cad, "Vinculação Comunitária"].values[0]).strip() if idx_cad is not None and "Vinculação Comunitária" in df.columns and pd.notna(df.loc[idx_cad, "Vinculação Comunitária"].values[0]) else "Isolado (Sem comunidade)"
+                    vinculo_comunidade = st.text_input("Participa de alguma Comunidade/Sinagoga/Núcleo? (Se não, digite Isolado):", value=v_vinculo if v_vinculo.lower() != 'nan' else "Isolado (Sem comunidade)")
+
+                with col_dir:
+                    st.markdown("### 🏢 Localização Geográfica")
+                    v_cep_antigo = str(df.loc[idx_cad, "Cep"].values[0]).strip() if idx_cad is not None and "Cep" in df.columns and pd.notna(df.loc[idx_cad, "Cep"].values[0]) else ""
+                    cep_input = st.text_input("Digite o CEP residencial (Apenas 8 números):", value=v_cep_antigo if v_cep_antigo.lower() != 'nan' else "", max_chars=8)
+                    
+                    logradouro_auto = ""
+                    bairro_auto = ""
+                    localidade_auto = ""
+                    uf_auto = ""
+
+                    if cep_input.strip().isdigit() and len(cep_input.strip()) == 8:
+                        try:
+                            json_cep = requests.get(f"https://viacep.com.br{cep_input.strip()}/json/").json()
+                            if "erro" not in json_cep:
+                                logradouro_auto = json_cep.get("logradouro", "")
+                                bairro_auto = json_cep.get("bairro", "")
+                                localidade_auto = json_cep.get("localidade", "")
+                                uf_auto = json_cep.get("uf", "")
+                                st.caption(f"📍 Endereço Mapeado: {logradouro_auto}, {bairro_auto} - {localidade_auto}/{uf_auto}")
+                            else:
+                                st.caption("⚠️ CEP não localizado na base postal.")
+                        except Exception:
+                            st.caption("⚠️ Erro de conexão com o servidor de busca postal.")
+
+                    rua = st.text_input("Logradouro (Rua/Avenida):", value=logradouro_auto if logradouro_auto else "")
+                    numero_predio = st.text_input("Número / Complemento / Casa:")
+                    
+                    v_bairro_antigo = str(df.loc[idx_cad, "Bairro"].values[0]).strip() if idx_cad is not None and "Bairro" in df.columns and pd.notna(df.loc[idx_cad, "Bairro"].values[0]) else ""
+                    bairro_final = bairro_auto if bairro_auto else v_bairro_antigo
+                    bairro = st.text_input("Bairro:", value=bairro_final if bairro_final.lower() != 'nan' else "")
+                    
+                    endereco_gerado = f"{rua}, nº {numero_predio}" if rua else ""
+
+                # Trava legal da LGPD
+                st.markdown("---")
+                st.markdown("#### 🛡️ Termo de Consentimento e Privacidade (LGPD)")
+                st.caption("De acordo com a Lei nº 13.709/2018 (LGPD), informamos que os seus dados de convicção religiosa e localização serão armazenados em ambiente seguro com a finalidade exclusiva de mapeamento e integração geo-comunitária, sendo proibido o compartilhamento público de dados identificáveis.")
+                aceite_lgpd = st.checkbox("Estou ciente e dou meu consentimento livre e esclarecido para o tratamento dos meus dados pessoais sensíveis neste projeto.")
+
+                botao_salvar_gps = st.form_submit_button("💾 Confirmar e Salvar no Banco de Dados GPS", use_container_width=True)
+                
+                if botao_salvar_gps:
+                    if not aceite_lgpd:
+                        st.error("❌ Gravação cancelada! Você precisa marcar a caixa do Termo de Consentimento da LGPD para realizar o cadastro.")
+                    elif idx_cad is not None:
+                        # Lista exata das colunas estruturadas solicitadas
+                        lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
+                        for col_nome in lista_colunas_obrigatorias:
+                            if col_nome not in df.columns: df[col_nome] = ""
+                        
+                        # Atualiza as variáveis correspondentes mantendo a chave estável
+                        df.at[idx_cad, "Município"] = municipio_input
+                        df.at[idx_cad, "Email"] = email_contato
+                        df.at[idx_cad, "Nome Judaico"] = nome_judaico
+                        df.at[idx_cad, "Telefone"] = tel_contato
+                        df.at[idx_cad, "Perfil Identidade"] = perfil_identidade
+                        df.at[idx_cad, "Vinculação Comunitária"] = vinculo_comunidade
+                        df.at[idx_cad, "Cep"] = cep_input
+                        df.at[idx_cad, "Bairro"] = bairro
+                        
+                        if endereco_gerado:
+                            df.at[idx_cad, "Endereço Completo"] = endereco_gerado
+                        
+                        # Reordena o salvamento no CSV exatamente no layout estruturado
+                        ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
+                        df = df[ordem_final_colunas]
+                        
+                        df.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+                        st.success(f"🎉 Cadastro de {nome_alvo} atualizado com sucesso em conformidade com a LGPD!")
+                        st.balloons()
+                    else:
+                        st.error("Erro operacional: Linha de registro inválida no CSV.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
