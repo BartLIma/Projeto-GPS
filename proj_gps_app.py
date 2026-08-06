@@ -10,7 +10,7 @@ st.markdown(
     <style>
         .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
         [data-testid="stSidebarUserContent"] { padding-top: 1.2rem !important; }
-        h1 { margin-top: -1.2rem !important; margin-bottom: 0.5rem !important; }
+        h1 { margin-top: -1rem !important; margin-bottom: 0.5rem !important; }
         h3 { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
         .stMarkdown p { margin-bottom: 0.4rem !important; }
     </style>
@@ -51,7 +51,7 @@ if st.session_state["acesso_liberado"]:
         
     df = df.dropna(how="all")
 
-    # Mapeamento robusto de cabeçalhos contra variações do Excel
+    # Mapeamento de cabeçalhos contra variações do Excel
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "")
@@ -68,7 +68,7 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Lista de colunas obrigatórias
+    # Lista rígida de colunas obrigatórias na mesma ordem solicitada
     lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns:
@@ -78,6 +78,9 @@ if st.session_state["acesso_liberado"]:
 
     df["Nome Completo"] = df["Nome Completo"].astype(str).str.strip()
     df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
+
+    # Cabeçalho de requisição seguro para a API do CEP não bloquear o app
+    headers_viacep = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
     # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
@@ -140,7 +143,7 @@ if st.session_state["acesso_liberado"]:
             txt_cp = v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else 'Não preenchido'
             
             st.info(f"📍 **Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
-    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES (MUDANÇA DE LÓGICA DO CEP) ---
+    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
@@ -156,16 +159,15 @@ if st.session_state["acesso_liberado"]:
             if not registro_filtrado.empty:
                 idx_real_salvamento = int(registro_filtrado.index[0])
 
-                # 🌟 SOLUÇÃO DO BUG: CEP agora fica FORA do st.form para disparar a API ViaCEP em tempo real! 🌟
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 v_c = str(df.at[idx_real_salvamento, "Cep"]).strip()
                 cep_i = st.text_input("Digite ou altere o CEP residencial (8 números):", value=v_c if v_c.lower() != "nan" else "", max_chars=8)
                 
-                # Executa a busca instantânea assim que o usuário digita os 8 números
                 rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
                 if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
                     try:
-                        j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/").json()
+                        # CORREÇÃO: Passando cabeçalhos Mozilla para evitar bloqueio da API do CEP
+                        j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/", headers=headers_viacep).json()
                         if "erro" not in j_cep:
                             rua_a = j_cep.get("logradouro", "")
                             bairro_auto = j_cep.get("bairro", "")
@@ -175,9 +177,8 @@ if st.session_state["acesso_liberado"]:
                         else:
                             st.warning("⚠️ CEP não localizado na base postal nacional.")
                     except:
-                        st.error("⚠️ Erro ao conectar com o serviço de busca por CEP.")
+                        st.error("⚠️ Falha de conexão na verificação automatizada.")
 
-                # Recupera dados legados do arquivo para servir de padrão inicial caso a API não seja acionada
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
                 v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
                 v_end_completo_antigo = str(df.at[idx_real_salvamento, "Endereço Completo"]).strip()
@@ -185,7 +186,6 @@ if st.session_state["acesso_liberado"]:
                 if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
                     rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
 
-                # Agora abrimos o formulário apenas para os dados cadastrais e confirmação
                 with st.form("form_gps_editar_real"):
                     col_esq, col_dir = st.columns(2)
                     with col_esq:
@@ -228,7 +228,8 @@ if st.session_state["acesso_liberado"]:
                             if rua_i: 
                                 df.at[idx_real_salvamento, "Endereço Completo"] = f"{rua_i}, nº {num_i}"
                             
-                            df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+                            ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
+                            df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                             st.success("Cadastro atualizado com sucesso!")
                             st.balloons()
             else:
@@ -239,13 +240,12 @@ if st.session_state["acesso_liberado"]:
         st.title("🆕 Criar Novo Cadastro Comunitário")
         st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
         
-        # Mantendo a lógica fora do form também na criação para o CEP voar alto!
         st.markdown("### 🏢 Validação Postal")
         n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
         rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
         if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
             try:
-                j_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/").json()
+                j_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep).json()
                 if "erro" not in j_n:
                     rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
                     st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
@@ -259,7 +259,9 @@ if st.session_state["acesso_liberado"]:
                 n_judaico = st.text_input("Nome Judaico / Hebraico:")
                 n_email = st.text_input("E-mail:")
                 n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
-                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"])
+                
+                # 🌟 CORREÇÃO: Caixa ativada para seleção de Perfil Identidade no Novo Cadastro 🌟
+                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
                 n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
             
             with col_dir:
@@ -277,10 +279,18 @@ if st.session_state["acesso_liberado"]:
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     n_endereco_completo = f"{n_rua}, nº {n_numero}" if n_rua else ""
+                    
+                    # 🌟 CORREÇÃO CRÍTICA DE GRAVAÇÃO: Cria o dicionário mapeando rigorosamente todas as colunas
                     nova_linha = {
-                        "Município": n_muni, "Nome Completo": n_nome.strip(), "Email": n_email,
-                        "Nome Judaico": n_judaico, "Telefone": n_telefone, "Perfil Identidade": n_perfil,
-                        "Vinculação Comunitária": n_vinculo, "Cep": n_cep, "Bairro": n_bairro,
+                        "Município": str(n_muni).strip(),
+                        "Nome Completo": str(n_nome).strip(),
+                        "Email": str(n_email).strip(),
+                        "Nome Judaico": str(n_judaico).strip(),
+                        "Telefone": str(n_telefone).strip(),
+                        "Perfil Identidade": str(n_perfil).strip(),
+                        "Vinculação Comunitária": str(n_vinculo).strip(),
+                        "Cep": str(n_cep).strip(),
+                        "Bairro": str(n_bairro).strip(),
                         "Endereço Completo": n_endereco_completo
                     }
                     df = pd.concat([df, pd.DataFrame([nova_linha])], ignore_index=True)
