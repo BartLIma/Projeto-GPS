@@ -1,6 +1,9 @@
 import pandas as pd
 import streamlit as st
 import requests
+import pandas as pd
+import streamlit as st
+import requests
 
 st.set_page_config(layout="wide")
 
@@ -22,6 +25,10 @@ senha_correta = "ditre123"
 if "acesso_liberado" not in st.session_state:
     st.session_state["acesso_liberado"] = False
 
+# Inicializa variáveis de controle de estado para matar o loop infinito da busca
+if "indice_pessoa_consultada" not in st.session_state:
+    st.session_state["indice_pessoa_consultada"] = None
+
 # --- TELA DE LOGIN ---
 if not st.session_state["acesso_liberado"]:
     st.title("🔐 Painel GPS - Autenticação")
@@ -38,7 +45,7 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro da base 'projeto_gps.csv' com ponto e vírgula
+    # Carregamento seguro da base 'projeto_gps.csv'
     try:
         df = pd.read_csv(
             "projeto_gps.csv",
@@ -59,12 +66,11 @@ if st.session_state["acesso_liberado"]:
     df.columns = df.columns.str.strip().str.replace('﻿', '')
     df = df.dropna(how="all")
 
-    # Garante que as colunas vitais de nomes e busca existam para não quebrar o código
+    # Garante as colunas vitais
     for col_vital in ["Nome Completo", "Nome Judaico", "Município"]:
         if col_vital not in df.columns:
             df[col_vital] = ""
 
-    # Higieniza as colunas de texto para evitar erros de busca por espaços extras
     df["Nome Completo"] = df["Nome Completo"].astype(str).str.strip()
     df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
@@ -80,18 +86,16 @@ if st.session_state["acesso_liberado"]:
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
         
-        # Caixa de texto em branco para digitar o nome da pessoa
+        # Caixa de texto de busca
         busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
         
         if busca_nome.strip():
-            # Executa a busca parcial inteligente (procura tanto no Nome Completo quanto no Nome Judaico)
             termo = busca_nome.lower().strip()
             filtro = df["Nome Completo"].str.lower().str.contains(termo) | df["Nome Judaico"].str.lower().str.contains(termo)
             registros_encontrados = df[filtro]
             
             if not registros_encontrados.empty:
-                # Se achar pessoas, cria uma lista com 'Nome Completo (Nome Judaico)' para selecionar
-                opcoes_pessoas = {}
+                opcoes_pessoas = {"-- Selecione uma pessoa da lista --": None}
                 for idx, row in registros_encontrados.iterrows():
                     nome_civil = row["Nome Completo"]
                     nome_hud = f" ({row['Nome Judaico']})" if pd.notna(row["Nome Judaico"]) and row["Nome Judaico"].strip() and row["Nome Judaico"].lower() != 'nan' else ""
@@ -100,40 +104,53 @@ if st.session_state["acesso_liberado"]:
                     label_visual = f"{nome_civil}{nome_hud}{muni_ref}"
                     opcoes_pessoas[label_visual] = idx
                 
-                pessoa_sel = st.selectbox("Selecione a pessoa exata encontrada:", sorted(opcoes_pessoas.keys()))
+                pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
                 
-                if p_idx := opcoes_pessoas.get(pessoa_sel):
-                    st.subheader(f"👤 Ficha Cadastral — {df.loc[p_idx, 'Nome Completo']}")
-                    st.markdown("---")
-                    
-                    # Varre e exibe todas as colunas da pessoa selecionada
-                    for col in df.columns:
-                        val = df.loc[p_idx, col]
-                        val_exibir = str(val).strip() if pd.notna(val) and str(val).lower() != 'nan' else ""
-                        st.write(f"**{col}:** {val_exibir}")
+                # Armazena a escolha de forma fixa na sessão para blindar contra o re-run
+                if pessoa_sel and opcoes_pessoas[pessoa_sel] is not None:
+                    st.session_state["indice_pessoa_consultada"] = opcoes_pessoas[pessoa_sel]
             else:
+                st.session_state["indice_pessoa_consultada"] = None
                 st.warning("Nenhuma pessoa foi localizada com esse nome na base de dados.")
         else:
+            st.session_state["indice_pessoa_consultada"] = None
             st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta cadastral.")
-       # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO POR NOME (LGPD) ---
+
+        # Exibe a Ficha de Dados fixa se houver uma pessoa selecionada na memória da sessão
+        if st.session_state["indice_pessoa_consultada"] is not None:
+            p_idx = st.session_state["indice_pessoa_consultada"]
+            st.markdown("---")
+            st.subheader(f"👤 Ficha Cadastral — {df.loc[p_idx, 'Nome Completo']}")
+            
+            # Divide a exibição das informações em duas colunas para melhor aproveitamento visual
+            f_col1, f_col2 = st.columns(2)
+            with f_col1:
+                st.write(f"**Nome Completo:** {df.loc[p_idx, 'Nome Completo']}")
+                st.write(f"**Nome Judaico:** {df.loc[p_idx, 'Nome Judaico'] if pd.notna(df.loc[p_idx, 'Nome Judaico']) and str(df.loc[p_idx, 'Nome Judaico']).lower() != 'nan' else ''}")
+                st.write(f"**Email:** {df.loc[p_idx, 'Email'] if pd.notna(df.loc[p_idx, 'Email']) and str(df.loc[p_idx, 'Email']).lower() != 'nan' else ''}")
+                st.write(f"**Telefone:** {df.loc[p_idx, 'Telefone'] if pd.notna(df.loc[p_idx, 'Telefone']) and str(df.loc[p_idx, 'Telefone']).lower() != 'nan' else ''}")
+            with f_col2:
+                st.write(f"**Perfil Identidade:** {df.loc[p_idx, 'Perfil Identidade']}")
+                st.write(f"**Vinculação Comunitária:** {df.loc[p_idx, 'Vinculação Comunitária']}")
+                st.write(f"**Município de Residência:** {df.loc[p_idx, 'Município']}")
+                st.write(f"**Bairro:** {df.loc[p_idx, 'Bairro'] if pd.notna(df.loc[p_idx, 'Bairro']) and str(df.loc[p_idx, 'Bairro']).lower() != 'nan' else ''}")
+            
+            st.info(f"📍 **Endereço Completo:** {df.loc[p_idx, 'Endereço Completo'] if pd.notna(df.loc[p_idx, 'Endereço Completo']) and str(df.loc[p_idx, 'Endereço Completo']).lower() != 'nan' else 'Não preenchido'}")
+    # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO POR NOME (LGPD) ---
     elif menu == "📝 Cadastrar / Atualizar Endereços":
         st.title("📝 Formulário de Posicionamento e Identidade Sefardita")
         st.markdown("Selecione o seu nome para atualizar o seu endereço ou preencher suas informações de afinidade comunitária.")
 
-        # Remove nomes vazios ou nulos para listar apenas cadastros válidos na edição
         df_validos = df[df["Nome Completo"].str.lower() != "nan"]
         df_validos = df_validos[df_validos["Nome Completo"].str.strip() != ""]
-        
         nomes_cadastrados = sorted(df_validos["Nome Completo"].unique())
         
-        # Permite selecionar a pessoa diretamente pelo nome para abrir a ficha de atualização
         nome_alvo = st.selectbox("Selecione o seu Nome Completo para atualizar:", nomes_cadastrados, key="nome_cadastro")
         
         if nome_alvo:
             res_cad = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
             idx_cad = res_cad.index if not res_cad.empty else None
 
-            # CORREÇÃO CRÍTICA DE INDENTAÇÃO: Alinhamento de escopo nivelado perfeitamente
             with st.form("form_gps_cadastro"):
                 col_esq, col_dir = st.columns(2)
                 
@@ -206,12 +223,11 @@ if st.session_state["acesso_liberado"]:
                     if not aceite_lgpd:
                         st.error("❌ Gravação cancelada! Você precisa marcar a caixa do Termo de Consentimento da LGPD para realizar o cadastro.")
                     elif idx_cad is not None:
-                        # Lista exata das colunas estruturadas solicitadas
                         lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
                         for col_nome in lista_colunas_obrigatorias:
                             if col_nome not in df.columns: df[col_nome] = ""
                         
-                        # Atualiza as variáveis correspondentes mantendo a chave estável
+                        # Atualiza as variáveis usando atribuição indexada estável (.at)
                         df.at[idx_cad, "Município"] = municipio_input
                         df.at[idx_cad, "Email"] = email_contato
                         df.at[idx_cad, "Nome Judaico"] = nome_judaico
@@ -224,7 +240,6 @@ if st.session_state["acesso_liberado"]:
                         if endereco_gerado:
                             df.at[idx_cad, "Endereço Completo"] = endereco_gerado
                         
-                        # Reordena o salvamento no CSV exatamente no layout estruturado
                         ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
                         df = df[ordem_final_colunas]
                         
