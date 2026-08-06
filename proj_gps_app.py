@@ -4,13 +4,15 @@ import requests
 
 st.set_page_config(layout="wide")
 
-# --- TRUQUE CSS: Enxuga o espaço em branco do topo da tela ---
+# --- TRUQUE CSS: Enxuga ao máximo os recuos superiores para ganhar campo de visão ---
 st.markdown(
     """
     <style>
-        .block-container { padding-top: 1.5rem !important; padding-bottom: 1rem !important; }
-        [data-testid="stSidebarUserContent"] { padding-top: 1.5rem !important; }
-        h1 { margin-top: -1rem !important; }
+        .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
+        [data-testid="stSidebarUserContent"] { padding-top: 1.2rem !important; }
+        h1 { margin-top: -1.2rem !important; margin-bottom: 0.5rem !important; }
+        h3 { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
+        .stMarkdown p { margin-bottom: 0.4rem !important; }
     </style>
     """,
     unsafe_allow_html=True
@@ -85,7 +87,7 @@ if st.session_state["acesso_liberado"]:
     )
     st.sidebar.markdown("---")
 
-    # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
+    # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME (COMPACTADA) ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
         busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
@@ -105,19 +107,20 @@ if st.session_state["acesso_liberado"]:
                 
                 pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
                 if pessoa_sel and opcoes_pessoas[pessoa_sel] is not None:
-                    st.session_state["indice_pessoa_consultada"] = opcoes_pessoas[pessoa_sel]
+                    st.session_state["indice_persona_consultada"] = opcoes_pessoas[pessoa_sel]
             else:
-                st.session_state["indice_pessoa_consultada"] = None
+                st.session_state["indice_persona_consultada"] = None
                 st.warning("Nenhuma pessoa foi localizada com esse nome.")
         else:
-            st.session_state["indice_pessoa_consultada"] = None
+            st.session_state["indice_persona_consultada"] = None
             st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta.")
 
-        if st.session_state["indice_pessoa_consultada"] is not None:
-            p_idx = st.session_state["indice_pessoa_consultada"]
+        if st.session_state["indice_persona_consultada"] is not None:
+            p_idx = st.session_state["indice_persona_consultada"]
             st.markdown("---")
             st.subheader(f"👤 Ficha Cadastral — {df.loc[p_idx, 'Nome Completo']}")
             
+            # Ajustado para reduzir espaço em tela: removemos linhas duplicadas
             f_col1, f_col2 = st.columns(2)
             with f_col1:
                 st.write(f"**Nome Completo:** {df.loc[p_idx, 'Nome Completo']}")
@@ -128,9 +131,11 @@ if st.session_state["acesso_liberado"]:
                 st.write(f"**Perfil Identidade:** {df.loc[p_idx, 'Perfil Identidade']}")
                 st.write(f"**Vinculação Comunitária:** {df.loc[p_idx, 'Vinculação Comunitária']}")
                 st.write(f"**Município de Residência:** {df.loc[p_idx, 'Município']}")
-                st.write(f"**Bairro:** {df.loc[p_idx, 'Bairro'] if pd.notna(df.loc[p_idx, 'Bairro']) and str(df.loc[p_idx, 'Bairro']).lower() != 'nan' else ''}")
-                st.write(f"**CEP:** {df.loc[p_idx, 'Cep'] if pd.notna(df.loc[p_idx, 'Cep']) and str(df.loc[p_idx, 'Cep']).lower() != 'nan' else ''}")
-            st.info(f"📍 **Endereço Completo:** {df.loc[p_idx, 'Endereço Completo'] if pd.notna(df.loc[p_idx, 'Endereço Completo']) and str(df.loc[p_idx, 'Endereço Completo']).lower() != 'nan' else 'Não preenchido'}")
+                # Bairro e CEP isolados foram migrados integralmente para a faixa abaixo para enxugar espaço
+            
+            # 🌟 MUDANÇA SOLICITADA: Faixa de endereço completa e unificada na parte inferior 🌟
+            v_en = df.loc[p_idx, 'Endereço Completo']
+            st.info(f"📍 **Endereço Completo:** {v_en if pd.notna(v_en) and str(v_en).lower() != 'nan' else 'Não preenchido'}")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
@@ -154,10 +159,12 @@ if st.session_state["acesso_liberado"]:
                     nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(df.at[idx_cad, "Nome Judaico"]) if pd.notna(df.at[idx_cad, "Nome Judaico"]) and str(df.at[idx_cad, "Nome Judaico"]).lower() != "nan" else "")
                     tel_i = st.text_input("Telefone / WhatsApp:", value=str(df.at[idx_cad, "Telefone"]) if pd.notna(df.at[idx_cad, "Telefone"]) and str(df.at[idx_cad, "Telefone"]).lower() != "nan" else "")
                     
+                    # 🌟 CORREÇÃO: Puxa e pré-seleciona textualmente o Perfil Identidade correto salvo no banco de dados 🌟
                     lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
                     v_p = str(df.at[idx_cad, "Perfil Identidade"]).strip()
                     idx_p = lista_perfis.index(v_p) if v_p in lista_perfis else 2
                     perfil_i = st.selectbox("Perfil Identidade:", lista_perfis, index=idx_p)
+                    
                     v_v = str(df.at[idx_cad, "Vinculação Comunitária"]).strip()
                     vinculo_i = st.text_input("Vinculação Comunitária:", value=v_v if v_v.lower() != "nan" else "Isolado (Sem comunidade)")
                 
@@ -175,8 +182,15 @@ if st.session_state["acesso_liberado"]:
                                 st.caption(f"📍 Mapeado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
                         except: pass
                     
-                    rua_i = st.text_input("Logradouro (Rua/Avenida):", value=rua_a if rua_a else "")
-                    num_i = st.text_input("Número / Complemento:")
+                    # 🌟 CORREÇÃO: Extração inteligente do Logradouro a partir da string salva se a API falhar 🌟
+                    v_end_completo_antigo = str(df.at[idx_cad, "Endereço Completo"]).strip()
+                    rua_vazia_padrao = ""
+                    if v_end_completo_antigo and ", nº" in v_end_completo_antigo:
+                        rua_vazia_padrao = v_end_completo_antigo.split(", nº")[0]
+                        
+                    rua_i = st.text_input("Logradouro (Rua/Avenida):", value=rua_a if rua_a else rua_vazia_padrao)
+                    num_i = st.text_input("Número / Complemento / Casa:")
+                    
                     v_b = str(df.at[idx_cad, "Bairro"]).strip()
                     bairro_i = st.text_input("Bairro:", value=bairro_auto if bairro_auto else (v_b if v_b.lower() != "nan" else ""))
                 
@@ -193,10 +207,13 @@ if st.session_state["acesso_liberado"]:
                         df.at[idx_cad, "Vinculação Comunitária"] = vinculo_i
                         df.at[idx_cad, "Cep"] = cep_i
                         df.at[idx_cad, "Bairro"] = bairro_i
-                        # 🌟 AJUSTE SOLICITADO: Endereço completo concatenando Rua, Nº, Bairro, Cidade/UF e CEP 🌟
-                        if rua_i: df.at[idx_cad, "Endereço Completo"] = f"{rua_i}, nº {num_i} - {bairro_i}, {muni_i}/{uf_auto if uf_auto else 'PB'}, CEP: {cep_i}"
+                        
+                        # Salva o endereço completo com a estrutura final condensada unificada
+                        if rua_i: 
+                            df.at[idx_cad, "Endereço Completo"] = f"{rua_i}, nº {num_i} - Bairro: {bairro_i}, {muni_i}/{uf_auto if uf_auto else 'PB'} - CEP: {cep_i}"
+                        
                         df[["Município"] + lista_colunas_obrigatorias].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
-                        st.success("Cadastro atualizado!")
+                        st.success("Cadastro atualizado com sucesso!")
                         st.balloons()
 
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
@@ -240,8 +257,7 @@ if st.session_state["acesso_liberado"]:
                 if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    # Monta a linha com o novo registro estruturado na mesma ordem solicitada
-                    n_endereco_completo = f"{n_rua}, nº {n_numero} - {n_bairro}, {n_muni}/{uf_n}, CEP: {n_cep}" if n_rua else ""
+                    n_endereco_completo = f"{n_rua}, nº {n_numero} - Bairro: {n_bairro}, {n_muni}/{uf_n} - CEP: {n_cep}" if n_rua else ""
                     nova_linha = {
                         "Município": n_muni, "Nome Completo": n_nome.strip(), "Email": n_email,
                         "Nome Judaico": n_judaico, "Telefone": n_telefone, "Perfil Identidade": n_perfil,
