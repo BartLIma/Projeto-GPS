@@ -44,18 +44,24 @@ if st.session_state["acesso_liberado"]:
             "projeto_gps.csv",
             sep=",",   
             encoding="utf-8-sig",
-            dtype={"Município": str, "Cep": str, "Bairro": str, "Telefone": str}
+            dtype=str  # Lê tudo temporariamente como texto para evitar conflitos de tipos
         )
     except Exception:
         df = pd.read_csv(
             "projeto_gps.csv",
             sep=";",   
             encoding="utf-8-sig",
-            dtype={"Município": str, "Cep": str, "Bairro": str, "Telefone": str}
+            dtype=str
         )
         
-    # CORREÇÃO CRÍTICA: Remove espaços e o lixo invisível do Excel que quebrava o "Município"
-    df.columns = df.columns.str.strip().str.replace('﻿', '')
+    # Limpa todos os espaços das colunas
+    df.columns = df.columns.str.strip()
+    
+    # 🌟 TRAVA DE SEGURANÇA MESTRE: Força a primeira coluna a se chamar 'Município'
+    # Isso elimina qualquer erro gerado pelo caractere invisível (BOM) do Excel
+    novas_colunas = list(df.columns)
+    novas_colunas[0] = "Município"
+    df.columns = novas_colunas
 
     # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
@@ -69,10 +75,10 @@ if st.session_state["acesso_liberado"]:
     if menu == "🔍 Consultar Cadastro":
         st.title("🔍 Consulta de Endereços e Contatos")
         
+        # Como forçamos o nome acima, este bloco sempre será verdadeiro
         if "Município" in df.columns:
-            # Força a limpeza e remoção de nulos na lista visual de seleção
             df["Município"] = df["Município"].astype(str).str.strip()
-            municipios = sorted(df["Município"].unique())
+            municipios = sorted(df["Município"].dropna().unique())
             if "nan" in municipios: municipios.remove("nan")
             
             muni_sel = st.selectbox("Selecione o município para consultar:", municipios)
@@ -87,12 +93,11 @@ if st.session_state["acesso_liberado"]:
                     # Exibe os campos na tela respeitando o layout limpo
                     for col in df.columns:
                         if col != "Município":
-                            val = df.loc[idx, col].values[0]
-                            st.write(f"**{col}:** {val if pd.notna(val) else ''}")
+                            val = df.loc[idx, col].values[0] # Pega o valor puro
+                            st.write(f"**{col}:** {val if pd.notna(val) and str(val).lower() != 'nan' else ''}")
                 else:
                     st.warning("Município selecionado não possui registros.")
-        else:
-            st.error("A coluna 'Município' não foi detectada no arquivo projeto_gps.csv.")
+
     # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO (LGPD) ---
     elif menu == "📝 Cadastrar / Atualizar Endereços":
         st.title("📝 Formulário de Posicionamento e Identidade Sefardita")
