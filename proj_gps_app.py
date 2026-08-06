@@ -247,7 +247,7 @@ if st.session_state["acesso_liberado"]:
         st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
         
         st.markdown("### 🏢 Validação Postal")
-        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
+        n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
         rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
         if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
             try:
@@ -276,7 +276,6 @@ if st.session_state["acesso_liberado"]:
             with col_dir:
                 st.markdown("### 🏡 Ajuste do Endereço")
                 n_muni = st.text_input("Município / Cidade:", value=muni_n)
-                # 🌟 MELHORIA SOLICITADA: Campo de endereço puro (Sem número avulso) 🌟
                 n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
                 n_bairro = st.text_input("Bairro:", value=bairro_n)
             
@@ -289,82 +288,42 @@ if st.session_state["acesso_liberado"]:
                 elif not n_lgpd: 
                     st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    # 🌟 FIX DE SALVAMENTO: Mapeia o próximo índice numérico absoluto livre para forçar a gravação física (.at)
-                    proximo_indice = len(df)
+                    # 🌟 CORREÇÃO DEFINITIVA: Cria a linha em formato de dicionário puro
+                    nova_linha_dict = {
+                        "Município": str(n_muni).strip(),
+                        "Nome Completo": str(n_nome).strip(),
+                        "Email": str(n_email).strip(),
+                        "Nome Judaico": str(n_judaico).strip(),
+                        "Telefone": str(n_telefone).strip(),
+                        "Perfil Identidade": str(n_perfil).strip(),
+                        "Vinculação Comunitária": str(n_vinculo).strip(),
+                        "Cep": str(n_cep).strip(),
+                        "Bairro": str(n_bairro).strip(),
+                        "Endereço Completo": str(n_rua).strip()
+                    }
                     
-                    df.at[proximo_indice, "Município"] = str(n_muni).strip()
-                    df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
-
-
-          # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
-    elif menu == "🆕 Criar Novo Cadastro do Zero":
-        st.title("🆕 Criar Novo Cadastro Comunitário")
-        st.markdown("Preencha as informações para registrar um novo membro do zero na base de dados.")
-        
-        st.markdown("### 🏢 Validação Postal")
-        n_cep = st.text_input("Digite o CEP residencial (8 números):", max_chars=8, key="cep_novo_membro")
-        rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
-        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
-            try:
-                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
-                if req_n.status_code == 200:
-                    j_n = req_n.json()
-                    if "erro" not in j_n:
-                        rua_n = j_n.get("logradouro", "")
-                        bairro_n = j_n.get("bairro", "")
-                        muni_n = j_n.get("localidade", "")
-                        uf_n = j_n.get("uf", "")
-                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
-            except: pass
-
-        with st.form("form_gps_novo"):
-            col_esq, col_dir = st.columns(2)
-            with col_esq:
-                st.markdown("### 👤 Informações Pessoais")
-                n_nome = st.text_input("Nome Completo Civil (Obrigatório):")
-                n_judaico = st.text_input("Nome Judaico / Hebraico:")
-                n_email = st.text_input("E-mail:")
-                n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
-                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
-                n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
-            
-            with col_dir:
-                st.markdown("### 🏡 Ajuste do Endereço")
-                n_muni = st.text_input("Município / Cidade:", value=muni_n)
-                # Campo de endereço puro unificado conforme solicitado (Ex: Rua Damasco, 79)
-                n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
-                n_bairro = st.text_input("Bairro:", value=bairro_n)
-            
-            st.markdown("---")
-            n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
-            
-            if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
-                if not n_nome.strip(): 
-                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: 
-                    st.error("Você precisa aceitar os termos da LGPD.")
-                else:
-                    # Calcula a próxima linha vazia do arquivo físico
-                    proximo_indice = len(df)
+                    # Converte o dicionário em DataFrame de uma linha
+                    df_nova_linha = pd.DataFrame([nova_linha_dict])
                     
-                    # Injeta os novos dados diretamente por atribuição linear estável (.at)
-                    df.at[proximo_indice, "Município"] = str(n_muni).strip()
-                    df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
-                    df.at[proximo_indice, "Email"] = str(n_email).strip()
-                    df.at[proximo_indice, "Nome Judaico"] = str(n_judaico).strip()
-                    df.at[proximo_indice, "Telefone"] = str(n_telefone).strip()
-                    df.at[proximo_indice, "Perfil Identidade"] = str(n_perfil).strip()
-                    df.at[proximo_indice, "Vinculação Comunitária"] = str(n_vinculo).strip()
-                    df.at[proximo_indice, "Cep"] = str(n_cep).strip()
-                    df.at[proximo_indice, "Bairro"] = str(n_bairro).strip()
-                    df.at[proximo_indice, "Endereço Completo"] = str(n_rua).strip()
+                    # 🌟 SEGREDO DO SALVAMENTO: Abre o arquivo físico real, anexa a nova linha e reescreve imediatamente
+                    try:
+                        df_atual_arquivo = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str)
+                    except:
+                        df_atual_arquivo = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str)
                     
-                    # Salva e reordena sobrescrevendo o arquivo projeto_gps.csv fisicamente
-                    ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
-                    df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+                    # Junta o novo membro com a tabela existente lida diretamente do disco
+                    df_final_salvar = pd.concat([df_atual_arquivo, df_nova_linha], ignore_index=True)
+                    
+                    # Força a ordem exata de colunas solicitada
+                    ordem_final_colunas = ["Município"] + ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
+                    df_final_salvar = df_final_salvar[ordem_final_colunas]
+                    
+                    # Sobrescreve o CSV em modo físico direto no repositório
+                    df_final_salvar.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
                     
                     st.success(f"🎉 {n_nome} foi gravado com sucesso no banco de dados GPS!")
                     st.balloons()
+                    st.rerun()
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
