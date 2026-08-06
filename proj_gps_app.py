@@ -44,15 +44,13 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Lista de colunas obrigatórias na ordem do negócio
-    lista_colunas_obrigatorias = ["Estado", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"]
+    # 🌟 Colunas obrigatórias com "Nome Civil" no lugar de Nome Completo
+    lista_colunas_obrigatorias = ["Estado", "Nome Civil", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"]
     
-    # Se o arquivo sumir, o Python recria a estrutura básica com o Município na frente
     if not os.path.exists("projeto_gps.csv"):
         df_vazio = pd.DataFrame(columns=["Município"] + lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
 
-    # Carregamento travado em ponto e vírgula (sep=";") conforme o padrão do seu Excel
     try:
         df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
@@ -60,13 +58,13 @@ if st.session_state["acesso_liberado"]:
         
     df = df.dropna(how="all")
 
-    # Mapeamento robusto de cabeçalhos contra variações do Excel
+    # Mapeamento robusto: mapeia tanto "nomecomplet" quanto "nomecivil" para "Nome Civil"
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "")
         if "municip" in col_limpa: mapeamento_colunas[col] = "Município"
         elif "estado" in col_limpa: mapeamento_colunas[col] = "Estado"
-        elif "nomecomplet" in col_limpa: mapeamento_colunas[col] = "Nome Completo"
+        elif "nomecomplet" in col_limpa or "nomecivil" in col_limpa: mapeamento_colunas[col] = "Nome Civil"
         elif "email" in col_limpa: mapeamento_colunas[col] = "Email"
         elif "nomejudaic" in col_limpa: mapeamento_colunas[col] = "Nome Judaico"
         elif "telefon" in col_limpa: mapeamento_colunas[col] = "Telefone"
@@ -79,14 +77,12 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Garante que todas as colunas existam na memória, mesmo que o arquivo mude de layout
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
     if "Município" not in df.columns: df["Município"] = ""
 
-    # Converte tudo para texto limpo e trata valores nulos (NaN)
-    for c in df.columns:
-        df[c] = df[c].fillna("").astype(str).str.strip()
+    df["Nome Civil"] = df["Nome Civil"].astype(str).str.strip()
+    df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
     headers_viacep = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
@@ -108,16 +104,16 @@ if st.session_state["acesso_liberado"]:
         
         if busca_nome.strip():
             termo = busca_nome.lower().strip()
-            filtro = df["Nome Completo"].str.lower().str.contains(termo) | df["Nome Judaico"].str.lower().str.contains(termo)
+            filtro = df["Nome Civil"].str.lower().str.contains(termo) | df["Nome Judaico"].str.lower().str.contains(termo)
             registros_encontrados = df[filtro]
             
             if not registros_encontrados.empty:
                 opcoes_pessoas = {"-- Selecione uma pessoa da lista --": None}
                 for idx, row in registros_encontrados.iterrows():
-                    nome_civil = row["Nome Completo"]
+                    nome_civ = row["Nome Civil"]
                     nome_hud = f" ({row['Nome Judaico']})" if row["Nome Judaico"] and row["Nome Judaico"].lower() != 'nan' else ""
                     muni_ref = f" - {row['Município']}" if row["Município"] and row["Município"].lower() != 'nan' else ""
-                    opcoes_pessoas[f"{nome_civil}{nome_hud}{muni_ref}"] = idx
+                    opcoes_pessoas[f"{nome_civ}{nome_hud}{muni_ref}"] = idx
                 
                 pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
                 if p_idx := opcoes_pessoas.get(pessoa_sel):
@@ -132,18 +128,17 @@ if st.session_state["acesso_liberado"]:
         if st.session_state["indice_persona_consultada"] is not None:
             p_idx = st.session_state["indice_persona_consultada"]
             st.markdown("---")
-            st.subheader(f"👤 Ficha Cadastral — {df.loc[p_idx, 'Nome Completo']}")
+            st.subheader(f"👤 Ficha Cadastral — {df.loc[p_idx, 'Nome Civil']}")
             
             f_col1, f_col2 = st.columns(2)
             with f_col1:
-                st.write(f"**Nome Completo:** {df.loc[p_idx, 'Nome Completo']}")
+                st.write(f"**Nome Civil:** {df.loc[p_idx, 'Nome Civil']}")
                 st.write(f"**Nome Judaico:** {df.loc[p_idx, 'Nome Judaico'] if df.loc[p_idx, 'Nome Judaico'].lower() != 'nan' else ''}")
                 st.write(f"**Email:** {df.loc[p_idx, 'Email'] if df.loc[p_idx, 'Email'].lower() != 'nan' else ''}")
                 st.write(f"**Telefone:** {df.loc[p_idx, 'Telefone'] if df.loc[p_idx, 'Telefone'].lower() != 'nan' else ''}")
             with f_col2:
                 st.write(f"**Perfil Identidade:** {df.loc[p_idx, 'Perfil Identidade']}")
                 st.write(f"**Vinculação Comunitária:** {df.loc[p_idx, 'Vinculação Comunitária']}")
-                # Exibe Município e o Novo campo Estado na mesma linha
                 muni_txt = df.loc[p_idx, 'Município']
                 est_txt = df.loc[p_idx, 'Estado']
                 st.write(f"**Localidade:** {muni_txt if muni_txt.lower() != 'nan' else ''} / {est_txt if est_txt.lower() != 'nan' else ''}")
@@ -156,7 +151,6 @@ if st.session_state["acesso_liberado"]:
             txt_br = v_br if v_br.lower() != 'nan' else 'Não preenchido'
             txt_cp = v_cp if v_cp.lower() != 'nan' else 'Não preenchido'
             
-            # Faixa azul atualizada com o novo layout geográfico
             st.info(f"📍 **Endereço/Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
             
             v_com = df.loc[p_idx, 'Comentários']
@@ -166,14 +160,14 @@ if st.session_state["acesso_liberado"]:
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
         
-        df_validos = df[df["Nome Completo"].str.lower() != "nan"]
-        df_validos = df_validos[df_validos["Nome Completo"].str.strip() != ""]
-        nomes_cadastrados = sorted(df_validos["Nome Completo"].unique())
+        df_validos = df[df["Nome Civil"].str.lower() != "nan"]
+        df_validos = df_validos[df_validos["Nome Civil"].str.strip() != ""]
+        nomes_cadastrados = sorted(df_validos["Nome Civil"].unique())
         
-        nome_alvo = st.selectbox("Selecione o Nome Completo para carregar:", nomes_cadastrados, key="nome_cadastro")
+        nome_alvo = st.selectbox("Selecione o Nome Civil para carregar:", nomes_cadastrados, key="nome_cadastro")
         
         if nome_alvo:
-            registro_filtrado = df[df["Nome Completo"].str.lower() == nome_alvo.lower().strip()]
+            registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
             
             if not registro_filtrado.empty:
                 idx_real_salvamento = int(registro_filtrado.index[0])
@@ -211,7 +205,6 @@ if st.session_state["acesso_liberado"]:
                     with col_esq:
                         st.markdown("### 👤 Dados de Identificação")
                         muni_i = st.text_input("Município de Residência:", value=cid_auto if cid_auto else (v_muni if v_muni.lower() != "nan" else ""))
-                        # 🌟 ADICIONADO: Campo Estado integrado ao formulário capturando a UF da API 🌟
                         estado_i = st.text_input("Estado / UF:", value=uf_auto if uf_auto else (v_est if v_est.lower() != "nan" else ""))
                         email_i = st.text_input("E-mail de Contato:", value=str(df.at[idx_real_salvamento, "Email"]) if str(df.at[idx_real_salvamento, "Email"]).lower() != "nan" else "")
                         nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(df.at[idx_real_salvamento, "Nome Judaico"]) if str(df.at[idx_real_salvamento, "Nome Judaico"]).lower() != "nan" else "")
@@ -240,9 +233,9 @@ if st.session_state["acesso_liberado"]:
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
                             st.success("🎉 Linha estruturada! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar no seu Excel.")
-                            # Gera tabela estruturada com a nova ordem incluindo a coluna Estado
+                            # Atualizado cabeçalho para Nome Civil
                             df_copia = pd.DataFrame([[muni_i, estado_i, nome_alvo, email_i, nome_j_i, tel_i, perfil_i, vinculo_i, cep_i, bairro_i, rua_i, coment_i]], 
-                                                    columns=["Município", "Estado", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
+                                                    columns=["Município", "Estado", "Nome Civil", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
                             st.dataframe(df_copia, use_container_width=True)
             else:
                 st.error("Membro não localizado na base de dados.")
@@ -270,7 +263,8 @@ if st.session_state["acesso_liberado"]:
             col_esq, col_dir = st.columns(2)
             with col_esq:
                 st.markdown("### 👤 Informações Pessoais")
-                n_nome = st.text_input("Nome Completo Civil (Obrigatório):")
+                # 🌟 Mudança de rótulo para Nome Civil
+                n_nome = st.text_input("Nome Civil (Obrigatório):")
                 n_judaico = st.text_input("Nome Judaico / Hebraico:")
                 n_email = st.text_input("E-mail:")
                 n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
@@ -280,7 +274,6 @@ if st.session_state["acesso_liberado"]:
             with col_dir:
                 st.markdown("### 🏡 Ajuste do Endereço")
                 n_muni = st.text_input("Município / Cidade:", value=muni_n)
-                # 🌟 ADICIONADO: Campo Estado integrado para o novo cadastro capturando a UF do CEP 🌟
                 n_estado = st.text_input("Estado / UF:", value=uf_n)
                 n_rua = st.text_input("Endereço/Logradouro Completo (Ex: Rua Damasco, 79):", value=rua_n)
                 n_bairro = st.text_input("Bairro:", value=bairro_n)
@@ -292,14 +285,14 @@ if st.session_state["acesso_liberado"]:
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
             if st.form_submit_button("💾 Gerar Nova Linha para o Excel", use_container_width=True):
-                if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                if not n_nome.strip(): st.error("O campo 'Nome Civil' é obrigatório!")
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
                     
-                    # Gera a tabela final com os 12 campos alinhados na ordem perfeita
+                    # Gera a tabela final com a nova ordem incluindo "Nome Civil"
                     df_novo_membro_copia = pd.DataFrame([[n_muni, n_estado, n_nome.strip(), n_email, n_judaico, n_telefone, n_perfil, n_vinculo, n_cep, n_bairro, n_rua, n_coment]], 
-                                            columns=["Município", "Estado", "Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
+                                            columns=["Município", "Estado", "Nome Civil", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo", "Comentários"])
                     st.dataframe(df_novo_membro_copia, use_container_width=True)
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
