@@ -38,7 +38,7 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Carregamento seguro da base 'projeto_gps.csv' em formato UTF-8
+    # Carregamento seguro da base 'projeto_gps.csv'
     try:
         df = pd.read_csv(
             "projeto_gps.csv",
@@ -54,7 +54,8 @@ if st.session_state["acesso_liberado"]:
             dtype={"Município": str, "Cep": str, "Bairro": str, "Telefone": str}
         )
         
-    df.columns = df.columns.str.strip()
+    # CORREÇÃO CRÍTICA: Remove espaços e o lixo invisível do Excel que quebrava o "Município"
+    df.columns = df.columns.str.strip().str.replace('﻿', '')
 
     # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
@@ -69,11 +70,15 @@ if st.session_state["acesso_liberado"]:
         st.title("🔍 Consulta de Endereços e Contatos")
         
         if "Município" in df.columns:
-            municipios = sorted(df["Município"].dropna().unique())
+            # Força a limpeza e remoção de nulos na lista visual de seleção
+            df["Município"] = df["Município"].astype(str).str.strip()
+            municipios = sorted(df["Município"].unique())
+            if "nan" in municipios: municipios.remove("nan")
+            
             muni_sel = st.selectbox("Selecione o município para consultar:", municipios)
             
             if muni_sel:
-                resultado = df[df["Município"].astype(str).str.lower().str.strip() == str(muni_sel).lower().strip()]
+                resultado = df[df["Município"].str.lower() == muni_sel.lower().strip()]
                 
                 if not resultado.empty:
                     idx = resultado.index
@@ -82,23 +87,26 @@ if st.session_state["acesso_liberado"]:
                     # Exibe os campos na tela respeitando o layout limpo
                     for col in df.columns:
                         if col != "Município":
-                            val = df.loc[idx, col].values
+                            val = df.loc[idx, col].values[0]
                             st.write(f"**{col}:** {val if pd.notna(val) else ''}")
                 else:
                     st.warning("Município selecionado não possui registros.")
         else:
-            st.warning("A coluna 'Município' não foi detectada no arquivo projeto_gps.csv.")
+            st.error("A coluna 'Município' não foi detectada no arquivo projeto_gps.csv.")
     # --- ABA 2: FORMULÁRIO ONLINE DE CAPTAÇÃO E ATUALIZAÇÃO (LGPD) ---
     elif menu == "📝 Cadastrar / Atualizar Endereços":
         st.title("📝 Formulário de Posicionamento e Identidade Sefardita")
         st.markdown("Preencha os campos abaixo de forma consciente. Os dados coletados estão protegidos sob as diretrizes da LGPD.")
 
         if "Município" in df.columns:
-            municipios_cad = sorted(df["Município"].dropna().unique())
+            df["Município"] = df["Município"].astype(str).str.strip()
+            municipios_cad = sorted(df["Município"].unique())
+            if "nan" in municipios_cad: municipios_cad.remove("nan")
+            
             muni_cad_sel = st.selectbox("Selecione o município de residência:", municipios_cad, key="muni_cadastro")
             
             if muni_cad_sel:
-                res_cad = df[df["Município"].astype(str).str.lower().str.strip() == str(muni_cad_sel).lower().strip()]
+                res_cad = df[df["Município"].str.lower() == muni_cad_sel.lower().strip()]
                 idx_cad = res_cad.index if not res_cad.empty else None
 
                 with st.form("form_gps_cadastro"):
@@ -106,10 +114,10 @@ if st.session_state["acesso_liberado"]:
                     
                     with col_esq:
                         st.markdown("### 👤 Informações de Contato e Identidade")
-                        v_responsavel = str(df.loc[idx_cad, "Nome Completo"].values).strip() if idx_cad is not None and "Nome Completo" in df.columns and pd.notna(df.loc[idx_cad, "Nome Completo"].values) else ""
-                        v_email = str(df.loc[idx_cad, "Email"].values).strip() if idx_cad is not None and "Email" in df.columns and pd.notna(df.loc[idx_cad, "Email"].values) else ""
-                        v_nome_jud = str(df.loc[idx_cad, "Nome Judaico"].values).strip() if idx_cad is not None and "Nome Judaico" in df.columns and pd.notna(df.loc[idx_cad, "Nome Judaico"].values) else ""
-                        v_tel = str(df.loc[idx_cad, "Telefone"].values).strip() if idx_cad is not None and "Telefone" in df.columns and pd.notna(df.loc[idx_cad, "Telefone"].values) else ""
+                        v_responsavel = str(df.loc[idx_cad, "Nome Completo"].values[0]).strip() if idx_cad is not None and "Nome Completo" in df.columns and pd.notna(df.loc[idx_cad, "Nome Completo"].values[0]) else ""
+                        v_email = str(df.loc[idx_cad, "Email"].values[0]).strip() if idx_cad is not None and "Email" in df.columns and pd.notna(df.loc[idx_cad, "Email"].values[0]) else ""
+                        v_nome_jud = str(df.loc[idx_cad, "Nome Judaico"].values[0]).strip() if idx_cad is not None and "Nome Judaico" in df.columns and pd.notna(df.loc[idx_cad, "Nome Judaico"].values[0]) else ""
+                        v_tel = str(df.loc[idx_cad, "Telefone"].values[0]).strip() if idx_cad is not None and "Telefone" in df.columns and pd.notna(df.loc[idx_cad, "Telefone"].values[0]) else ""
                         
                         nome_resp = st.text_input("Nome Completo:", value=v_responsavel)
                         email_contato = st.text_input("E-mail de Contato:", value=v_email)
@@ -119,18 +127,18 @@ if st.session_state["acesso_liberado"]:
                         st.markdown("---")
                         st.markdown("### 📜 Identidade e Afinidade Cultural")
                         
-                        v_perfil = str(df.loc[idx_cad, "Perfil Identidade"].values).strip() if idx_cad is not None and "Perfil Identidade" in df.columns and pd.notna(df.loc[idx_cad, "Perfil Identidade"].values) else "Simpatizante"
+                        v_perfil = str(df.loc[idx_cad, "Perfil Identidade"].values[0]).strip() if idx_cad is not None and "Perfil Identidade" in df.columns and pd.notna(df.loc[idx_cad, "Perfil Identidade"].values[0]) else "Simpatizante"
                         lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
                         idx_perfil_padrao = lista_perfis.index(v_perfil) if v_perfil in lista_perfis else 2
                         
                         perfil_identidade = st.selectbox("Como você se identifica em relação ao Judaísmo?", lista_perfis, index=idx_perfil_padrao)
                         
-                        v_vinculo = str(df.loc[idx_cad, "Vinculação Comunitária"].values).strip() if idx_cad is not None and "Vinculação Comunitária" in df.columns and pd.notna(df.loc[idx_cad, "Vinculação Comunitária"].values) else "Isolado (Sem comunidade)"
+                        v_vinculo = str(df.loc[idx_cad, "Vinculação Comunitária"].values[0]).strip() if idx_cad is not None and "Vinculação Comunitária" in df.columns and pd.notna(df.loc[idx_cad, "Vinculação Comunitária"].values[0]) else "Isolado (Sem comunidade)"
                         vinculo_comunidade = st.text_input("Participa de alguma Comunidade/Sinagoga/Núcleo? (Se não, digite Isolado):", value=v_vinculo)
 
                     with col_dir:
                         st.markdown("### 🏢 Localização Geográfica")
-                        v_cep_antigo = str(df.loc[idx_cad, "Cep"].values).strip() if idx_cad is not None and "Cep" in df.columns and pd.notna(df.loc[idx_cad, "Cep"].values) else ""
+                        v_cep_antigo = str(df.loc[idx_cad, "Cep"].values[0]).strip() if idx_cad is not None and "Cep" in df.columns and pd.notna(df.loc[idx_cad, "Cep"].values[0]) else ""
                         cep_input = st.text_input("Digite o CEP residencial (Apenas 8 números):", value=v_cep_antigo, max_chars=8)
                         
                         logradouro_auto = ""
@@ -155,8 +163,7 @@ if st.session_state["acesso_liberado"]:
                         rua = st.text_input("Logradouro (Rua/Avenida):", value=logradouro_auto if logradouro_auto else "")
                         numero_predio = st.text_input("Número / Complemento / Casa:")
                         
-                        # Campo do Bairro preenchido automaticamente ou manualmente
-                        v_bairro_antigo = str(df.loc[idx_cad, "Bairro"].values).strip() if idx_cad is not None and "Bairro" in df.columns and pd.notna(df.loc[idx_cad, "Bairro"].values) else ""
+                        v_bairro_antigo = str(df.loc[idx_cad, "Bairro"].values[0]).strip() if idx_cad is not None and "Bairro" in df.columns and pd.notna(df.loc[idx_cad, "Bairro"].values[0]) else ""
                         bairro_final = bairro_auto if bairro_auto else v_bairro_antigo
                         bairro = st.text_input("Bairro:", value=bairro_final)
                         
@@ -174,12 +181,11 @@ if st.session_state["acesso_liberado"]:
                         if not aceite_lgpd:
                             st.error("❌ Gravação cancelada! Você precisa marcar a caixa do Termo de Consentimento da LGPD para realizar o cadastro.")
                         elif idx_cad is not None:
-                            # 🌟 Alinha e garante a criação da lista exata de colunas incluindo o Bairro na ordem certa
                             lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
                             for col_nome in lista_colunas_obrigatorias:
                                 if col_nome not in df.columns: df[col_nome] = ""
                             
-                            # Gravação estruturada das variáveis correspondentes
+                            # Gravação higienizada e direta
                             df.loc[idx_cad, "Nome Completo"] = nome_resp
                             df.loc[idx_cad, "Email"] = email_contato
                             df.loc[idx_cad, "Nome Judaico"] = nome_judaico
@@ -192,7 +198,7 @@ if st.session_state["acesso_liberado"]:
                             if endereco_gerado:
                                 df.loc[idx_cad, "Endereço Completo"] = endereco_gerado
                             
-                            # Reordena o DataFrame para salvar no CSV exatamente no layout solicitado
+                            # Reordena o DataFrame forçando o alinhamento idêntico ao solicitado
                             ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
                             df = df[ordem_final_colunas]
                             
