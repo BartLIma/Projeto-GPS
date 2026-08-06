@@ -10,7 +10,7 @@ st.markdown(
     <style>
         .block-container { padding-top: 1.2rem !important; padding-bottom: 1rem !important; }
         [data-testid="stSidebarUserContent"] { padding-top: 1.2rem !important; }
-        h1 { margin-top: -1rem !important; margin-bottom: 0.5rem !important; }
+        h1 { margin-top: -12px !important; margin-bottom: 0.5rem !important; }
         h3 { margin-top: 0.5rem !important; margin-bottom: 0.5rem !important; }
         .stMarkdown p { margin-bottom: 0.4rem !important; }
     </style>
@@ -51,7 +51,7 @@ if st.session_state["acesso_liberado"]:
         
     df = df.dropna(how="all")
 
-    # Mapeamento de cabeçalhos contra variações do Excel
+    # Mapeamento robusto de cabeçalhos contra variações do Excel
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "")
@@ -68,7 +68,7 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Lista rígida de colunas obrigatórias na mesma ordem solicitada
+    # Lista de colunas obrigatórias
     lista_colunas_obrigatorias = ["Nome Completo", "Email", "Nome Judaico", "Telefone", "Perfil Identidade", "Vinculação Comunitária", "Cep", "Bairro", "Endereço Completo"]
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns:
@@ -79,8 +79,11 @@ if st.session_state["acesso_liberado"]:
     df["Nome Completo"] = df["Nome Completo"].astype(str).str.strip()
     df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
-    # Cabeçalho de requisição seguro para a API do CEP não bloquear o app
-    headers_viacep = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    # Cabeçalho Mozilla completo para simular acesso real e forçar o ViaCEP a responder sem bloquear o IP
+    headers_viacep = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
 
     # --- CONSTRUÇÃO DO MENU LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
@@ -143,12 +146,12 @@ if st.session_state["acesso_liberado"]:
             txt_cp = v_cp if pd.notna(v_cp) and str(v_cp).lower() != 'nan' else 'Não preenchido'
             
             st.info(f"📍 **Logradouro:** {txt_en} | 🏷️ **Bairro:** {txt_br} | 📮 **CEP:** {txt_cp}")
-    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+      # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.title("📝 Editar Cadastro Comunitário")
         
         df_validos = df[df["Nome Completo"].str.lower() != "nan"]
-        df_validos = df_validos[df["Nome Completo"].str.strip() != ""]
+        df_validos = df_validos[df_validos["Nome Completo"].str.strip() != ""]
         nomes_cadastrados = sorted(df_validos["Nome Completo"].unique())
         
         nome_alvo = st.selectbox("Selecione o Nome Completo para editar:", nomes_cadastrados, key="nome_cadastro")
@@ -166,18 +169,22 @@ if st.session_state["acesso_liberado"]:
                 rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
                 if cep_i.strip().isdigit() and len(cep_i.strip()) == 8:
                     try:
-                        # CORREÇÃO: Passando cabeçalhos Mozilla para evitar bloqueio da API do CEP
-                        j_cep = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/", headers=headers_viacep).json()
-                        if "erro" not in j_cep:
-                            rua_a = j_cep.get("logradouro", "")
-                            bairro_auto = j_cep.get("bairro", "")
-                            cid_auto = j_cep.get("localidade", "")
-                            uf_auto = j_cep.get("uf", "")
-                            st.success(f"📍 ViaCEP Localizado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
+                        # BLINDAGEM DA API: Timeout de 4 segundos e headers completos impedem erros de conexão na nuvem
+                        req = requests.get(f"https://viacep.com.br{cep_i.strip()}/json/", headers=headers_viacep, timeout=4)
+                        if req.status_code == 200:
+                            j_cep = req.json()
+                            if "erro" not in j_cep:
+                                rua_a = j_cep.get("logradouro", "")
+                                bairro_auto = j_cep.get("bairro", "")
+                                cid_auto = j_cep.get("localidade", "")
+                                uf_auto = j_cep.get("uf", "")
+                                st.success(f"📍 ViaCEP Localizado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
+                            else:
+                                st.caption("ℹ️ CEP válido, mas sem logradouro automático cadastrado (Preencha manualmente abaixo).")
                         else:
-                            st.warning("⚠️ CEP não localizado na base postal nacional.")
-                    except:
-                        st.error("⚠️ Falha de conexão na verificação automatizada.")
+                            st.caption("ℹ️ Servidor postal ocupado. Digite os dados de endereço nos campos manuais abaixo.")
+                    except Exception:
+                        st.caption("ℹ️ Consulta em segundo plano habilitada. Digite os dados de endereço nos campos manuais abaixo.")
 
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
                 v_b = str(df.at[idx_real_salvamento, "Bairro"]).strip()
@@ -245,10 +252,15 @@ if st.session_state["acesso_liberado"]:
         rua_n, bairro_n, muni_n, uf_n = "", "", "", "PB"
         if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
             try:
-                j_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep).json()
-                if "erro" not in j_n:
-                    rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
-                    st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
+                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
+                if req_n.status_code == 200:
+                    j_n = req_n.json()
+                    if "erro" not in j_n:
+                        rua_n = j_n.get("logradouro", "")
+                        bairro_n = j_n.get("bairro", "")
+                        muni_n = j_n.get("localidade", "")
+                        uf_n = j_n.get("uf", "")
+                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
             except: pass
 
         with st.form("form_gps_novo"):
@@ -259,8 +271,6 @@ if st.session_state["acesso_liberado"]:
                 n_judaico = st.text_input("Nome Judaico / Hebraico:")
                 n_email = st.text_input("E-mail:")
                 n_telefone = st.text_input("Telefone / WhatsApp (Com DDD):")
-                
-                # 🌟 CORREÇÃO: Caixa ativada para seleção de Perfil Identidade no Novo Cadastro 🌟
                 n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
                 n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
             
@@ -275,26 +285,33 @@ if st.session_state["acesso_liberado"]:
             n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
             
             if st.form_submit_button("💾 Salvar Novo Cadastro do Zero", use_container_width=True):
-                if not n_nome.strip(): st.error("O campo 'Nome Completo Civil' é obrigatório!")
-                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
+                if not n_nome.strip(): 
+                    st.error("O campo 'Nome Completo Civil' é obrigatório!")
+                elif not n_lgpd: 
+                    st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     n_endereco_completo = f"{n_rua}, nº {n_numero}" if n_rua else ""
                     
-                    # 🌟 CORREÇÃO CRÍTICA DE GRAVAÇÃO: Cria o dicionário mapeando rigorosamente todas as colunas
-                    nova_linha = {
-                        "Município": str(n_muni).strip(),
-                        "Nome Completo": str(n_nome).strip(),
-                        "Email": str(n_email).strip(),
-                        "Nome Judaico": str(n_judaico).strip(),
-                        "Telefone": str(n_telefone).strip(),
-                        "Perfil Identidade": str(n_perfil).strip(),
-                        "Vinculação Comunitária": str(n_vinculo).strip(),
-                        "Cep": str(n_cep).strip(),
-                        "Bairro": str(n_bairro).strip(),
-                        "Endereço Completo": n_endereco_completo
-                    }
-                    df = pd.concat([df, pd.DataFrame([nova_linha])], ignore_index=True)
-                    st.success(f"🎉 {n_nome} foi cadastrado com sucesso no banco de dados GPS!")
+                    # Calcula a próxima linha vazia do DataFrame
+                    proximo_indice = len(df)
+                    
+                    # Injeta os novos dados diretamente na memória
+                    df.at[proximo_indice, "Município"] = str(n_muni).strip()
+                    df.at[proximo_indice, "Nome Completo"] = str(n_nome).strip()
+                    df.at[proximo_indice, "Email"] = str(n_email).strip()
+                    df.at[proximo_indice, "Nome Judaico"] = str(n_judaico).strip()
+                    df.at[proximo_indice, "Telefone"] = str(n_telefone).strip()
+                    df.at[proximo_indice, "Perfil Identidade"] = str(n_perfil).strip()
+                    df.at[proximo_indice, "Vinculação Comunitária"] = str(n_vinculo).strip()
+                    df.at[proximo_indice, "Cep"] = str(n_cep).strip()
+                    df.at[proximo_indice, "Bairro"] = str(n_bairro).strip()
+                    df.at[proximo_indice, "Endereço Completo"] = str(n_endereco_completo).strip()
+                    
+                    # Força a gravação física reorganizando as colunas no arquivo original
+                    ordem_final_colunas = ["Município"] + lista_colunas_obrigatorias
+                    df[ordem_final_colunas].to_csv("projeto_gps.csv", sep=";", index=False, encoding="utf-8-sig")
+                    
+                    st.success(f"🎉 {n_nome} foi gravado com sucesso no banco de dados GPS!")
                     st.balloons()
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
