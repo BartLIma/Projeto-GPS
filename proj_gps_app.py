@@ -61,7 +61,7 @@ if st.session_state["acesso_liberado"]:
         
     df = df.dropna(how="all")
 
-    # 🌟 CORREÇÃO MESTRE: Remove acentos e hífens das colunas para casar perfeitamente os dados e impedir campos em branco
+    # Remove acentos e hífens das colunas para casar perfeitamente os dados e impedir campos em branco
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "")
@@ -131,28 +131,35 @@ if st.session_state["acesso_liberado"]:
         if st.session_state["indice_persona_consultada"] is not None:
             p_idx = st.session_state["indice_persona_consultada"]
             st.markdown("---")
-            st.subheader(f"👤 Ficha Cadastral — {df.loc[p_idx, 'Nome Civil']}")
+            
+            # 🌟 EXTRAÇÃO DIRETA RETIFICADA: Uso de df.at[p_idx, ...] extrai o texto puro e traz os dados na tela 🌟
+            nome_civil_tela = df.at[p_idx, 'Nome Civil']
+            st.subheader(f"👤 Ficha Cadastral — {nome_civil_tela}")
             
             f_col1, f_col2 = st.columns(2)
             with f_col1:
-                st.write(f"**Nome Civil:** {df.loc[p_idx, 'Nome Civil']}")
-                st.write(f"**Nome Judaico:** {df.loc[p_idx, 'Nome Judaico'] if df.loc[p_idx, 'Nome Judaico'].lower() != 'nan' else ''}")
-                st.write(f"**E-mail:** {df.loc[p_idx, 'E-mail'] if df.loc[p_idx, 'E-mail'].lower() != 'nan' else ''}")
-                st.write(f"**Número de telefone:** {df.loc[p_idx, 'Número de telefone'] if df.loc[p_idx, 'Número de telefone'].lower() != 'nan' else ''}")
+                st.write(f"**Nome Civil:** {nome_civil_tela}")
+                v_nj = df.at[p_idx, 'Nome Judaico']
+                st.write(f"**Nome Judaico:** {v_nj if v_nj.lower() != 'nan' else ''}")
+                v_em = df.at[p_idx, 'E-mail']
+                st.write(f"**E-mail:** {v_em if v_em.lower() != 'nan' else ''}")
+                v_tl = df.at[p_idx, 'Número de telefone']
+                st.write(f"**Número de telefone:** {v_tl if v_tl.lower() != 'nan' else ''}")
             with f_col2:
-                st.write(f"**Perfil de Identidade:** {df.loc[p_idx, 'Perfil de Identidade']}")
-                st.write(f"**Vinculação Comunitária:** {df.loc[p_idx, 'Vinculação Comunitária']}")
-                muni_txt = df.loc[p_idx, 'Município']
-                est_txt = df.loc[p_idx, 'UF']
+                st.write(f"**Perfil de Identidade:** {df.at[p_idx, 'Perfil de Identidade']}")
+                st.write(f"**Vinculação Comunitária:** {df.at[p_idx, 'Vinculação Comunitária']}")
+                muni_txt = df.at[p_idx, 'Município']
+                est_txt = df.at[p_idx, 'UF']
                 st.write(f"**Localidade:** {muni_txt if muni_txt.lower() != 'nan' else ''} / {est_txt if est_txt.lower() != 'nan' else ''}")
             
-            v_en = df.loc[p_idx, 'Endereço']
+            v_en = df.at[p_idx, 'Endereço']
             txt_en = v_en if v_en.lower() != 'nan' else 'Não preenchido'
             st.info(f"📍 **Endereço Completo:** {txt_en}")
             
-            v_com = df.loc[p_idx, 'Comentários']
+            v_com = df.at[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if v_com.lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
+
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
