@@ -44,29 +44,29 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # Lista de colunas obrigatórias na ordem exata do seu formulário do Google
+    # Lista rígida na ordem exata do formulário do Google
     lista_colunas_obrigatorias = ["Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
     if not os.path.exists("projeto_gps.csv"):
         df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=",", index=False, encoding="utf-8-sig")
 
-    # 🌟 BLINDAGEM MESTRE CONTRA ERROS DE DECODIFICAÇÃO (Linha 59 corrigida) 🌟
-    # Tenta ler com Vírgula e UTF-8 moderno. Se o Excel quebrar, o 'except' captura e lê em formato ANSI (cp1252)
+    # Tratamento avançado de encoding contra travas do Excel (Mapeamento de vírgula padrão)
     try:
         df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except UnicodeDecodeError:
         df = pd.read_csv("projeto_gps.csv", sep=",", encoding="cp1252", dtype=str, skip_blank_lines=True)
     except Exception:
-        # Fallback de segurança para garantir estabilidade absoluta do app
         df = pd.read_csv("projeto_gps.csv", sep=",", encoding="latin-1", dtype=str, skip_blank_lines=True)
         
     df = df.dropna(how="all")
 
-    # Mapeamento de cabeçalhos adaptado aos nomes do Google Forms
+    # 🌟 CORREÇÃO MESTRE: Remove acentos e hífens das colunas para casar perfeitamente os dados e impedir campos em branco
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "")
+        col_limpa = col_limpa.replace("í", "i").replace("ê", "e").replace("á", "a").replace("ó", "o").replace("ã", "a")
+        
         if "municip" in col_limpa: mapeamento_colunas[col] = "Município"
         elif "uf" in col_limpa or "estado" in col_limpa: mapeamento_colunas[col] = "UF"
         elif "nomecivil" in col_limpa or "nomecomplet" in col_limpa: mapeamento_colunas[col] = "Nome Civil"
@@ -80,14 +80,19 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
+    # Força a existência de todas para blindagem
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
 
+    # Higieniza nulos e espaços
     for c in df.columns:
         df[c] = df[c].fillna("").astype(str).str.strip()
 
+    df["Nome Civil"] = df["Nome Civil"].astype(str).str.strip()
+    df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
+
     headers_viacep = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json"
     }
 
@@ -148,7 +153,6 @@ if st.session_state["acesso_liberado"]:
             v_com = df.loc[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if v_com.lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
-
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -272,7 +276,6 @@ if st.session_state["acesso_liberado"]:
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
                     
-                    # Gera a tabela final com os campos alinhados trazendo Município e UF rígidos no fim
                     df_novo_membro_copia = pd.DataFrame([[n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], 
                                             columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
