@@ -5,6 +5,7 @@ import os
 
 st.set_page_config(layout="wide")
 
+# --- TRUQUE CSS: Enxuga os recuos superiores para otimizar o campo de visão ---
 st.markdown(
     """
     <style>
@@ -18,6 +19,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Senha fixa para segurança do painel
 senha_correta = "ditre123"
 
 if "acesso_liberado" not in st.session_state:
@@ -26,6 +28,7 @@ if "acesso_liberado" not in st.session_state:
 if "indice_persona_consultada" not in st.session_state:
     st.session_state["indice_persona_consultada"] = None
 
+# --- TELA DE LOGIN ---
 if not st.session_state["acesso_liberado"]:
     st.title("🔐 Painel GPS - Autenticação")
     col_login, _ = st.columns(2)
@@ -38,23 +41,26 @@ if not st.session_state["acesso_liberado"]:
             else:
                 st.error("Senha incorreta! Tente novamente.")
 
+# --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
     # Nova lista de colunas na ordem exata do seu formulário do Google
     lista_colunas_obrigatorias = ["Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
+    # Se o arquivo sumir, o Python recria a estrutura básica com o separador de vírgula (sep=",")
     if not os.path.exists("projeto_gps.csv"):
         df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=",", index=False, encoding="utf-8-sig")
 
+    # 🌟 TRAVA MESTRE: Força o Pandas a ler o arquivo priorizando a VÍRGULA (sep=",") 🌟
     try:
         df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except Exception:
-        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
+        df = pd.read_csv("projeto_gps.csv", sep=";", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
         
     df = df.dropna(how="all")
 
-    # Mapeamento flexível adaptado aos novos nomes exatos do Google Forms
+    # Mapeamento robusto adaptado aos novos nomes exatos do Google Forms
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "")
@@ -86,6 +92,7 @@ if st.session_state["acesso_liberado"]:
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero"])
     st.sidebar.markdown("---")
 
+    # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
         busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
@@ -108,10 +115,10 @@ if st.session_state["acesso_liberado"]:
                     st.session_state["indice_persona_consultada"] = p_idx
             else:
                 st.session_state["indice_persona_consultada"] = None
-                st.warning("Nenhuma pessoa foi localizada com esse nome.")
+                st.warning("Nenhuma pessoa foi localizada com esse nome na base de dados.")
         else:
             st.session_state["indice_persona_consultada"] = None
-            st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta.")
+            st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta cadastral.")
 
         if st.session_state["indice_persona_consultada"] is not None:
             p_idx = st.session_state["indice_persona_consultada"]
@@ -138,7 +145,7 @@ if st.session_state["acesso_liberado"]:
             v_com = df.loc[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if v_com.lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
-    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+                # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
         
@@ -154,7 +161,7 @@ if st.session_state["acesso_liberado"]:
             if not registro_filtrado.empty:
                 idx_real_salvamento = int(registro_filtrado.index[0])
 
-                st.markdown("### 🏢 Validação Postal Geográfica (Opcional para capturar Município/UF via CEP)")
+                st.markdown("### 🏢 Validação Postal Geográfica (Opcional para consulta via CEP)")
                 cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
                 
                 rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
@@ -206,7 +213,8 @@ if st.session_state["acesso_liberado"]:
                         if not aceite_lgpd: 
                             st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            st.success("🎉 Linha estruturada na nova ordem! Copie a tabela abaixo e cole na sua planilha do computador.")
+                            st.success("🎉 Linha estruturada! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar no seu Excel.")
+                            # 🌟 AJUSTE: O separador interno na visualização respeita a ordenação com Município e UF no final
                             df_copia = pd.DataFrame([[nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], 
                                                     columns=lista_colunas_obrigatorias)
                             st.dataframe(df_copia, use_container_width=False)
@@ -261,7 +269,7 @@ if st.session_state["acesso_liberado"]:
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
                     
-                    # Gera a tabela final respeitando a nova ordenação do Google Forms (Município e UF no fim)
+                    # 🌟 GERAÇÃO EXATA: Respeita a ordem com o Município e a UF no fim da linha do Excel
                     df_novo_membro_copia = pd.DataFrame([[n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], 
                                             columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
@@ -269,3 +277,4 @@ if st.session_state["acesso_liberado"]:
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
 st.markdown("<p style='text-align:right; font-size:12px; color:gray;'>Bartolomeu Lima - Corecon-ES 1541</p>", unsafe_allow_html=True)
+
