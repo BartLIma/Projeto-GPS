@@ -51,7 +51,7 @@ if st.session_state["acesso_liberado"]:
         df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=",", index=False, encoding="utf-8-sig")
 
-    # Tratamento avançado de encoding contra travas do Excel (Mapeamento de vírgula padrão)
+    # Tratamento de encoding
     try:
         df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
     except UnicodeDecodeError:
@@ -61,7 +61,7 @@ if st.session_state["acesso_liberado"]:
         
     df = df.dropna(how="all")
 
-    # Remove acentos e hífens das colunas para casar perfeitamente os dados e impedir campos em branco
+    # Remove acentos e hífens das colunas
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "")
@@ -80,24 +80,23 @@ if st.session_state["acesso_liberado"]:
 
     df = df.rename(columns=mapeamento_colunas)
 
-    # Força a existência de todas para blindagem
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
 
-    # Higieniza nulos e espaços
     for c in df.columns:
         df[c] = df[c].fillna("").astype(str).str.strip()
-
-    df["Nome Civil"] = df["Nome Civil"].astype(str).str.strip()
-    df["Nome Judaico"] = df["Nome Judaico"].astype(str).str.strip()
 
     headers_viacep = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
         "Accept": "application/json"
     }
 
+    # 🌟 ATUALIZADO: Menu ganhou a quarta opção: "🗺️ Mapa de Distribuição"
     st.sidebar.header("Painel de Controle GPS")
-    menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero"])
+    menu = st.sidebar.radio(
+        "Selecione a Ação:", 
+        ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🗺️ Mapa de Distribuição"]
+    )
     st.sidebar.markdown("---")
 
     # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
@@ -111,7 +110,6 @@ if st.session_state["acesso_liberado"]:
             registros_encontrados = df[filtro]
             
             if not registros_encontrados.empty:
-                # 🌟 CORREÇÃO DEFINITIVA: Mudamos de None para -1 para destravar a leitura da linha 0 (o seu registro)
                 opcoes_pessoas = {"-- Selecione uma pessoa da lista --": -1}
                 for idx, row in registros_encontrados.iterrows():
                     nome_civ = row["Nome Civil"]
@@ -121,8 +119,6 @@ if st.session_state["acesso_liberado"]:
                 
                 pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
                 p_idx_escolhido = opcoes_pessoas.get(pessoa_sel)
-                
-                # Valida rigorosamente se o índice é válido (maior ou igual a 0)
                 if p_idx_escolhido is not None and p_idx_escolhido >= 0:
                     st.session_state["indice_persona_consultada"] = p_idx_escolhido
             else:
@@ -142,12 +138,9 @@ if st.session_state["acesso_liberado"]:
             f_col1, f_col2 = st.columns(2)
             with f_col1:
                 st.write(f"**Nome Civil:** {nome_civil_tela}")
-                v_nj = df.at[p_idx, 'Nome Judaico']
-                st.write(f"**Nome Judaico:** {v_nj if v_nj.lower() != 'nan' else ''}")
-                v_em = df.at[p_idx, 'E-mail']
-                st.write(f"**E-mail:** {v_em if v_em.lower() != 'nan' else ''}")
-                v_tl = df.at[p_idx, 'Número de telefone']
-                st.write(f"**Número de telefone:** {v_tl if v_tl.lower() != 'nan' else ''}")
+                st.write(f"**Nome Judaico:** {df.at[p_idx, 'Nome Judaico'] if df.at[p_idx, 'Nome Judaico'].lower() != 'nan' else ''}")
+                st.write(f"**E-mail:** {df.at[p_idx, 'E-mail'] if df.at[p_idx, 'E-mail'].lower() != 'nan' else ''}")
+                st.write(f"**Número de telefone:** {df.at[p_idx, 'Número de telefone'] if df.at[p_idx, 'Número de telefone'].lower() != 'nan' else ''}")
             with f_col2:
                 st.write(f"**Perfil de Identidade:** {df.at[p_idx, 'Perfil de Identidade']}")
                 st.write(f"**Vinculação Comunitária:** {df.at[p_idx, 'Vinculação Comunitária']}")
@@ -162,8 +155,6 @@ if st.session_state["acesso_liberado"]:
             v_com = df.at[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if v_com.lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
-
-
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -285,11 +276,62 @@ if st.session_state["acesso_liberado"]:
                 if not n_nome.strip(): st.error("O campo 'Nome Civil' é obrigatório!")
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia (📋) no canto direito para colar no seu Excel.")
-                    
+                    st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no seu Excel.")
                     df_novo_membro_copia = pd.DataFrame([[n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], 
                                             columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
+
+    # 🌟 --- ABA 4: MAPA INTERATIVO DE DISTRIBUIÇÃO COMUNITÁRIA --- 🌟
+    elif menu == "🗺️ Mapa de Distribuição":
+        st.title("🗺️ Mapa de Distribuição Geo-Comunitária")
+        st.markdown("Visualização geográfica em tempo real dos municípios onde há membros cadastrados na planilha.")
+        
+        # Tabela interna de Coordenadas Oficiais (Dicionário PROCV interno)
+        # 📌 Adicione novas cidades mantendo a estrutura: "Cidade": [Latitude, Longitude]
+        coordenadas_cidades = {
+            "vitoria": [-20.3155, -40.3128],
+            "joao pessoa": [-7.1198, -34.8450],
+            "campina grande": [-7.2247, -35.8772],
+            "santa rita": [-7.1139, -34.9736],
+            "patos": [-7.0269, -37.2797],
+            "guarabira": [-6.8547, -35.4914],
+            "cabedelo": [-6.9811, -34.8339],
+            "vila velha": [-20.3297, -40.2925],
+            "serra": [-20.1287, -40.3078],
+            "cariacica": [-20.2639, -40.4201]
+        }
+        
+        lista_mapa = []
+        
+        # Corre mapeamento cruzado gerando os pontos correspondentes
+        if not df.empty and "Município" in df.columns:
+            # Conta quantas pessoas existem em cada município para gerar peso visual
+            contagem_municipios = df["Município"].str.lower().str.strip().value_counts()
+            
+            for muni_nome, total_pessoas in contagem_municipios.items():
+                if muni_nome in coordenadas_cidades:
+                    lat_long = coordenadas_cidades[muni_nome]
+                    # Adiciona na lista com a nomenclatura exigida pelo st.map do Streamlit
+                    lista_mapa.append({
+                        "latitude": lat_long[0],
+                        "longitude": lat_long[1],
+                        "municipio": muni_nome.title(),
+                        "quantidade": int(total_pessoas)
+                    })
+        
+        if len(lista_mapa) > 0:
+            df_mapa = pd.DataFrame(lista_mapa)
+            st.metric("📍 Total de Municípios Mapeados", len(df_mapa))
+            
+            # Desenha o mapa reativo nativo do Streamlit na tela
+            st.map(df_mapa, size=20, color="#0056b3")
+            
+            # Exibe relatório resumo simplificado no rodapé do mapa
+            st.markdown("### 📊 Densidade por Cidade:")
+            for item in lista_mapa:
+                st.write(f"• **{item['municipio']}:** {item['quantidade']} membro(s) cadastrado(s).")
+        else:
+            st.warning("⚠️ Nenhuma cidade do banco de dados possui coordenadas configuradas na tabela interna ainda.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
