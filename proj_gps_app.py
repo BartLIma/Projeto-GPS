@@ -47,20 +47,23 @@ if st.session_state["acesso_liberado"]:
     # Lista de colunas obrigatórias na ordem exata do seu formulário do Google
     lista_colunas_obrigatorias = ["Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
-    # Se o arquivo sumir, o Python recria a estrutura básica com o separador de vírgula (sep=",")
     if not os.path.exists("projeto_gps.csv"):
         df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=",", index=False, encoding="utf-8-sig")
 
-    # 🌟 CORREÇÃO CRÍTICA (Linha 59): Leitura e fallback travados 100% com separador de vírgula (sep=",") 🌟
+    # 🌟 BLINDAGEM MESTRE CONTRA ERROS DE DECODIFICAÇÃO (Linha 59 corrigida) 🌟
+    # Tenta ler com Vírgula e UTF-8 moderno. Se o Excel quebrar, o 'except' captura e lê em formato ANSI (cp1252)
     try:
         df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
+    except UnicodeDecodeError:
+        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="cp1252", dtype=str, skip_blank_lines=True)
     except Exception:
-        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
+        # Fallback de segurança para garantir estabilidade absoluta do app
+        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="latin-1", dtype=str, skip_blank_lines=True)
         
     df = df.dropna(how="all")
 
-    # Mapeamento de cabeçalhos adaptado aos novos nomes exatos do Google Forms
+    # Mapeamento de cabeçalhos adaptado aos nomes do Google Forms
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "")
