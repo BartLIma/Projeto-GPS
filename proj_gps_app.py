@@ -111,16 +111,20 @@ if st.session_state["acesso_liberado"]:
             registros_encontrados = df[filtro]
             
             if not registros_encontrados.empty:
-                opcoes_pessoas = {"-- Selecione uma pessoa da lista --": None}
+                # 🌟 CORREÇÃO DEFINITIVA: Mudamos de None para -1 para destravar a leitura da linha 0 (o seu registro)
+                opcoes_pessoas = {"-- Selecione uma pessoa da lista --": -1}
                 for idx, row in registros_encontrados.iterrows():
                     nome_civ = row["Nome Civil"]
                     nome_hud = f" ({row['Nome Judaico']})" if row["Nome Judaico"] and row["Nome Judaico"].lower() != 'nan' else ""
                     muni_ref = f" - {row['Município']}" if row["Município"] and row["Município"].lower() != 'nan' else ""
-                    opcoes_pessoas[f"{nome_civ}{nome_hud}{muni_ref}"] = idx
+                    opcoes_pessoas[f"{nome_civ}{nome_hud}{muni_ref}"] = int(idx)
                 
                 pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
-                if p_idx := opcoes_pessoas.get(pessoa_sel):
-                    st.session_state["indice_persona_consultada"] = p_idx
+                p_idx_escolhido = opcoes_pessoas.get(pessoa_sel)
+                
+                # Valida rigorosamente se o índice é válido (maior ou igual a 0)
+                if p_idx_escolhido is not None and p_idx_escolhido >= 0:
+                    st.session_state["indice_persona_consultada"] = p_idx_escolhido
             else:
                 st.session_state["indice_persona_consultada"] = None
                 st.warning("Nenhuma pessoa foi localizada com esse nome na base de dados.")
@@ -132,7 +136,6 @@ if st.session_state["acesso_liberado"]:
             p_idx = st.session_state["indice_persona_consultada"]
             st.markdown("---")
             
-            # 🌟 EXTRAÇÃO DIRETA RETIFICADA: Uso de df.at[p_idx, ...] extrai o texto puro e traz os dados na tela 🌟
             nome_civil_tela = df.at[p_idx, 'Nome Civil']
             st.subheader(f"👤 Ficha Cadastral — {nome_civil_tela}")
             
@@ -159,6 +162,7 @@ if st.session_state["acesso_liberado"]:
             v_com = df.at[p_idx, 'Comentários']
             txt_com = str(v_com).strip() if v_com.lower() != 'nan' else ""
             st.text_area("🗒️ Comentários / Histórico Comunitário:", value=txt_com, height=100, disabled=True)
+
 
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
