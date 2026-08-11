@@ -38,10 +38,17 @@ coordenadas_cidades = {
 }
 
 coordenadas_estados = {
-    "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000],
-    "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000],
-    "ce": [-5.0000, -39.5000], "ba": [-12.5000, -41.5000],
-    "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729]
+    "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
+    "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
+    "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729]
+}
+
+# 🌟 DICIONÁRIO DE TRADUÇÃO: Normaliza qualquer digitação por extenso ou sigla para o padrão oficial 🌟
+tradutor_uf = {
+    "paraiba": "pb", "pb": "pb", "espirito santo": "es", "es": "es",
+    "minas gerais": "mg", "mg": "mg", "pernambuco": "pe", "pe": "pe",
+    "rio grande do norte": "rn", "rn": "rn", "ceara": "ce", "ce": "ce",
+    "bahia": "ba", "ba": "ba", "sao paulo": "sp", "sp": "sp", "rio de janeiro": "rj", "rj": "rj"
 }
 
 # --- TELA DE LOGIN ---
@@ -90,9 +97,11 @@ if st.session_state["acesso_liberado"]:
         if col_nome not in df.columns: df[col_nome] = ""
     for c in df.columns: df[c] = df[c].fillna("").astype(str).str.strip()
 
-    headers_viacep = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+    headers_viacep = {
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+    }
 
-    # 🌟 MENU EXPANDIDO: Inclui as 5 ações combinadas
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
     st.sidebar.markdown("---")
@@ -142,13 +151,15 @@ if st.session_state["acesso_liberado"]:
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
-            # 🌟 INTERATIVIDADE SOLICITADA 1: Mapa individual focado no município da pessoa consultada
-            muni_membro = df.at[p_idx, 'Município'].lower().strip()
+            # 🌟 CORREÇÃO MESTRE 2: Mapa reativo travado no registro ativo da consulta (p_idx) 🌟
+            muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
-                st.markdown("#### 🗺️ Localização Geográfica do Membro")
+                st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
                 df_muni_mapa = pd.DataFrame([{"latitude": coords[0], "longitude": coords[1]}])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
+            else:
+                st.caption("ℹ️ Mapa indisponível para este município (Coordenadas não cadastradas internamente).")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -246,7 +257,7 @@ if st.session_state["acesso_liberado"]:
                     st.success(f"🎉 Linha gerada! Clique no ícone de cópia (📋) para colar no Excel.")
                     df_novo_membro_copia = pd.DataFrame([[n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-    # --- ABA 4: MAPA POR MUNICÍPIO (COM PONTOS CRESCENTES POR DENSIDADE) ---
+    # --- ABA 4: MAPA POR MUNICÍPIO (PONTOS CRESCENTES POR DENSIDADE) ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Visualização com círculos proporcionais ao número de membros em cada cidade.")
@@ -258,7 +269,6 @@ if st.session_state["acesso_liberado"]:
             for muni_nome, total in contagem_muni.items():
                 if muni_nome in coordenadas_cidades:
                     coords = coordenadas_cidades[muni_nome]
-                    # 🌟 MELHORIA SOLICITADA: Tamanho crescente proporcional ao número de registros (total * 25)
                     tamanho_circulo = int(total) * 25
                     lista_mapa_muni.append({
                         "latitude": coords[0], "longitude": coords[1],
@@ -269,7 +279,6 @@ if st.session_state["acesso_liberado"]:
         if len(lista_mapa_muni) > 0:
             df_mapa_muni = pd.DataFrame(lista_mapa_muni)
             st.metric("🏙️ Cidades Mapeadas", len(df_mapa_muni))
-            # O Streamlit usa a coluna 'size' automaticamente para definir o diâmetro da bola
             st.map(df_mapa_muni, size="size", color="#0056b3")
             
             st.markdown("### 📊 Densidade por Cidade:")
@@ -278,38 +287,45 @@ if st.session_state["acesso_liberado"]:
         else:
             st.warning("⚠️ Nenhuma cidade correspondente configurada na tabela interna.")
 
-    # --- ABA 5: INTERATIVIDADE SOLICITADA 2: MAPA POR ESTADO (CIRCULOS PROPORCIONAIS) ---
+    # --- ABA 5: MAPA POR ESTADO TRADUZIDO E PROPORCIONAL ---
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         
         lista_mapa_estado = []
         if not df.empty and "UF" in df.columns:
-            # Conta a quantidade de registros agregada por UF (Ex: PB, ES)
-            contagem_uf = df["UF"].str.lower().str.strip().value_counts()
+            # Dicionário temporário para somar os estados após a tradução
+            somas_estados = {}
             
-            for uf_nome, total in contagem_uf.items():
-                if uf_nome in coordenadas_estados:
-                    coords = coordenadas_estados[uf_nome]
-                    # 🌟 REGRA DO PONTO CRESCENTE: Define o diâmetro proporcional ao volume total (total * 150)
-                    tamanho_estado = int(total) * 150
-                    lista_mapa_estado.append({
-                        "latitude": coords[0], "longitude": coords[1],
-                        "uf_sigla": uf_nome.upper(), "quantidade": int(total),
-                        "size": tamanho_estado
-                    })
+            for _, row in df.iterrows():
+                uf_bruta = str(row["UF"]).strip().lower().replace("í", "i").replace("ã", "a")
+                # 🌟 TRADUÇÃO INSTANTÂNEA: Converte "Minas Gerais" ou "Mg" para a chave "mg" 🌟
+                uf_oficial = tradutor_uf.get(uf_bruta, uf_bruta)
+                
+                if uf_oficial in coordenadas_estados:
+                    somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
+            
+            # Monta a lista geográfica baseada nas somas consolidadas
+            for uf_chave, total in somas_estados.items():
+                coords = coordenadas_estados[uf_chave]
+                # 🌟 REGRA DO PONTO CRESCENTE: Diâmetro proporcional ao volume do Estado
+                tamanho_estado = int(total) * 150
+                lista_mapa_estado.append({
+                    "latitude": coords[0], "longitude": coords[1],
+                    "uf_sigla": uf_chave.upper(), "quantidade": int(total),
+                    "size": tamanho_estado
+                })
                     
         if len(lista_mapa_estado) > 0:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
-            st.metric("🗺️ Estados Mapeados", len(df_mapa_estado))
-            # Renderiza o mapa com as bolinhas crescentes nos estados
+            st.metric("🗺️ Estados Mapeados com Sucesso", len(df_mapa_estado))
             st.map(df_mapa_estado, size="size", color="#d32f2f")
             
-            st.markdown("### 📊 Densidade por Estado (UF):")
+            st.markdown("### 📊 Densidade Consolidada por Estado (UF):")
             for item in lista_mapa_estado:
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
         else:
-            st.warning("⚠️ Nenhum estado correspondente configurada na tabela interna.")
+            st.warning("⚠️ Nenhum estado correspondente configurado na tabela interna.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
