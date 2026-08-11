@@ -270,7 +270,7 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-    # --- ABA 4: MAPA POR MUNICÍPIO (AGORA COM CAIXA DE ESCOLHA INDIVIDUAL DE CIDADES) ---
+       # --- ABA 4: MAPA POR MUNICÍPIO (AGORA COM CAIXA DE ESCOLHA INDIVIDUAL DE CIDADES) ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione um município na lista abaixo para focar a visão e ver o peso da concentração local.")
@@ -286,23 +286,24 @@ if st.session_state["acesso_liberado"]:
                 if muni_nome in coordenadas_cidades:
                     cidades_disponiveis.append(muni_nome.title())
                     coords = coordenadas_cidades[muni_nome]
+                    # 🌟 CORREÇÃO CRÍTICA: Isola o índice [0] para latitude e [1] para longitude em float puro 🌟
                     lista_mapa_muni.append({
-                        "latitude": float(coords), 
-                        "longitude": float(coords), 
+                        "latitude": float(coords[0]), 
+                        "longitude": float(coords[1]), 
                         "municipio": muni_nome.title(), 
                         "quantidade": int(total), 
-                        "size": int(total) * 45  # Aumentado o diâmetro para melhorar a leitura focalizada
+                        "size": int(total) * 45
                     })
         
         if len(lista_mapa_muni) > 0:
             df_mapa_muni = pd.DataFrame(lista_mapa_muni)
             
-            # 🌟 INTERATIVIDADE SOLICITADA 2: Caixa de escolha para focar na cidade desejada 🌟
+            # Caixa de escolha para focar na cidade desejada
             cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", sorted(cidades_disponiveis))
             
             # Filtra a tabela do mapa para exibir apenas a linha da cidade que você escolheu
             df_mapa_filtrado = df_mapa_muni[df_mapa_muni["municipio"] == cidade_selecionada]
-            qtd_membros_cidade = int(df_mapa_filtrado["quantidade"].values)
+            qtd_membros_cidade = int(df_mapa_filtrado["quantidade"].values[0])
             
             st.metric(f"📍 Membros em {cidade_selecionada}", qtd_membros_cidade)
             
@@ -331,9 +332,10 @@ if st.session_state["acesso_liberado"]:
             
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
+                # 🌟 CORREÇÃO CRÍTICA: Isola o índice [0] para latitude e [1] para longitude em float puro 🌟
                 lista_mapa_estado.append({
-                    "latitude": float(coords), 
-                    "longitude": float(coords), 
+                    "latitude": float(coords[0]), 
+                    "longitude": float(coords[1]), 
                     "uf_sigla": uf_chave.upper(), 
                     "quantidade": int(total), 
                     "size": int(total) * 150
