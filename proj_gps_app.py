@@ -3,6 +3,7 @@ import streamlit as st
 import requests
 import os
 import datetime
+import pydeck as pdk
 
 st.set_page_config(layout="wide")
 
@@ -123,103 +124,7 @@ if st.session_state["acesso_liberado"]:
         if col_nome not in df.columns: df[col_nome] = ""
     for c in df.columns: df[c] = df[c].fillna("").astype(str).str.strip()
 
-    st.sidebar.header("Painel de Controle GPS")
-    menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
-    st.sidebar.markdown("---")
-
-    # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
-    if menu == "🔍 Consultar por Nome":
-        st.title("🔍 Consulta de Membros da Comunidade")
-        busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
-        
-        if busca_nome.strip():
-            termo = busca_nome.lower().strip()
-            filtro = df["Nome Civil"].str.lower().str.contains(termo) | df["Nome Judaico"].str.lower().str.contains(termo)
-            registros_encontrados = df[filtro]
-            
-            if not registros_encontrados.empty:
-                opcoes_pessoas = {"-- Selecione uma pessoa da lista --": -1}
-                for idx, row in registros_encontrados.iterrows():
-                    opcoes_pessoas[f"{row['Nome Civil']} ({row['Nome Judaico']}) - {row['Município']}"] = int(idx)
-                
-                pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
-                p_idx_escolhido = opcoes_pessoas.get(pessoa_sel)
-                if p_idx_escolhido is not None and p_idx_escolhido >= 0:
-                    st.session_state["indice_persona_consultada"] = p_idx_escolhido
-            else:
-                st.session_state["indice_persona_consultada"] = None
-                st.warning("Nenhuma pessoa foi localizada.")
-        else:
-            st.session_state["indice_persona_consultada"] = None
-            st.info("💡 Por favor, digite o nome de alguém acima para realizar a consulta.")
-
-        if st.session_state["indice_persona_consultada"] is not None:
-            p_idx = st.session_state["indice_persona_consultada"]
-            st.markdown("---")
-            st.subheader(f"👤 Ficha Cadastral — {df.at[p_idx, 'Nome Civil']}")
-            
-            f_col1, f_col2 = st.columns(2)
-            with f_col1:
-                st.write(f"**Nome Civil:** {df.at[p_idx, 'Nome Civil']}")
-                st.write(f"**Nome Judaico:** {df.at[p_idx, 'Nome Judaico']}")
-                st.write(f"**E-mail:** {df.at[p_idx, 'E-mail']}")
-                st.write(f"**Número de telefone:** {df.at[p_idx, 'Número de telefone']}")
-            with f_col2:
-                st.write(f"**Perfil de Identidade:** {df.at[p_idx, 'Perfil de Identidade']}")
-                st.write(f"**Vinculação Comunitária:** {df.at[p_idx, 'Vinculação Comunitária']}")
-                st.write(f"**Localidade:** {df.at[p_idx, 'Município']} / {df.at[p_idx, 'UF']}")
-                st.write(f"**Data de Cadastro:** {df.at[p_idx, 'Carimbo de data/hora']}")
-            
-            st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
-            st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
-            
-            muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
-            if muni_membro in coordenadas_cidades:
-                st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
-                coords = coordenadas_cidades[muni_membro]
-                df_muni_mapa = pd.DataFrame([{
-                    "latitude": float(coords[0]), 
-                    "longitude": float(coords[1])
-                }])
-                st.map(df_muni_mapa, size=30, color="#2e7d32")
-            else:
-                st.caption("ℹ️ Mapa em nível de rua indisponível para este município.")
-   # --- APLICATIVO PRINCIPAL LIBERADO ---
-if st.session_state["acesso_liberado"]:
-    
-    lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
-    
-    if not os.path.exists("projeto_gps.csv"):
-        df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
-        df_vazio.to_csv("projeto_gps.csv", sep=",", index=False, encoding="utf-8-sig")
-
-    try:
-        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
-    except Exception:
-        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="cp1252", dtype=str, skip_blank_lines=True)
-        
-    df = df.dropna(how="all")
-
-    mapeamento_colunas = {}
-    for col in df.columns:
-        col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "").replace("/", "").replace("í", "i").replace("ê", "e").replace("á", "a").replace("ó", "o").replace("ã", "a")
-        if "carimbo" in col_limpa or "datahora" in col_limpa: mapeamento_colunas[col] = "Carimbo de data/hora"
-        elif "municip" in col_limpa: mapeamento_colunas[col] = "Município"
-        elif "uf" in col_limpa or "estado" in col_limpa: mapeamento_colunas[col] = "UF"
-        elif "nomecivil" in col_limpa or "nomecomplet" in col_limpa: mapeamento_colunas[col] = "Nome Civil"
-        elif "email" in col_limpa: mapeamento_colunas[col] = "E-mail"
-        elif "nomejudaic" in col_limpa: mapeamento_colunas[col] = "Nome Judaico"
-        elif "numerodetelefone" in col_limpa or "telefon" in col_limpa: mapeamento_colunas[col] = "Número de telefone"
-        elif "perfil" in col_limpa: mapeamento_colunas[col] = "Perfil de Identidade"
-        elif "vinculac" in col_limpa: mapeamento_colunas[col] = "Vinculação Comunitária"
-        elif "enderec" in col_limpa or "logradour" in col_limpa: mapeamento_colunas[col] = "Endereço"
-        elif "comentar" in col_limpa: mapeamento_colunas[col] = "Comentários"
-
-    df = df.rename(columns=mapeamento_colunas)
-    for col_nome in lista_colunas_obrigatorias:
-        if col_nome not in df.columns: df[col_nome] = ""
-    for c in df.columns: df[c] = df[c].fillna("").astype(str).str.strip()
-
+    # 🌟 APENAS UMA DECLARAÇÃO DO MENU: Evita o erro de StreamlitDuplicateElementId 🌟
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
     st.sidebar.markdown("---")
@@ -275,8 +180,7 @@ if st.session_state["acesso_liberado"]:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
                 
-                # 🌟 CONFIGURAÇÃO CLARA DETALHADA: Renderiza o ponto no mapa colorido tradicional com Pydeck 🌟
-                import pydeck as pdk
+                # 🌟 VERSÃO MAPA CLARO: Renderização do ponto de consulta individual no modo claro
                 view_state = pdk.ViewState(latitude=float(coords[0]), longitude=float(coords[1]), zoom=11, pitch=0)
                 layer = pdk.Layer(
                     "ScatterplotLayer",
@@ -285,10 +189,70 @@ if st.session_state["acesso_liberado"]:
                     get_color="[46, 125, 50, 160]",  # Verde translúcido
                     get_radius=800,
                 )
-                # O parâmetro map_style define o tema claro (light-v10) do mapa de fundo
                 st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, map_style="mapbox://styles/mapbox/light-v10"))
             else:
                 st.caption("ℹ️ Mapa em nível de rua indisponível para este município.")
+    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+    elif menu == "📝 Editar Cadastro Existente":
+        st.subheader("📝 Editar Cadastro Comunitário")
+        df_validos = df[df["Nome Civil"].str.lower() != "nan"]
+        df_validos = df_validos[df_validos["Nome Civil"].str.strip() != ""]
+        nomes_cadastrados = sorted(df_validos["Nome Civil"].unique())
+        nome_alvo = st.selectbox("Selecione o Nome Civil para carregar:", nomes_cadastrados, key="nome_cadastro")
+        
+        if nome_alvo:
+            registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
+            if not registro_filtrado.empty:
+                idx_real_salvamento = int(registro_filtrado.index[0])
+
+                st.markdown("### 🏢 Validação Postal Geográfica")
+                cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
+                rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
+                if cep_busca.strip().isdigit() and len(cep_busca.strip()) == 8:
+                    try:
+                        req = requests.get(f"https://viacep.com.br{cep_busca.strip()}/json/", headers=headers_viacep, timeout=4)
+                        if req.status_code == 200:
+                            j_cep = req.json()
+                            if "erro" not in j_cep:
+                                rua_a, bairro_auto, cid_auto, uf_auto = j_cep.get("logradouro", ""), j_cep.get("bairro", ""), j_cep.get("localidade", ""), j_cep.get("uf", "")
+                                st.success(f"📍 ViaCEP Encontrado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
+                    except Exception: pass
+
+                v_carimbo = str(df.at[idx_real_salvamento, "Carimbo de data/hora"]).strip()
+                v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
+                v_est = str(df.at[idx_real_salvamento, "UF"]).strip()
+                v_end_antigo = str(df.at[idx_real_salvamento, "Endereço"]).strip()
+                v_com_antigo = str(df.at[idx_real_salvamento, "Comentários"]).strip()
+
+                with st.form("form_gps_editar_real"):
+                    col_esq, col_dir = st.columns(2)
+                    with col_esq:
+                        st.markdown("### 👤 Dados de Identificação")
+                        email_i = st.text_input("E-mail de Contato:", value=str(df.at[idx_real_salvamento, "E-mail"]))
+                        nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(df.at[idx_real_salvamento, "Nome Judaico"]))
+                        tel_i = st.text_input("Número de telefone:", value=str(df.at[idx_real_salvamento, "Número de telefone"]))
+                        lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
+                        v_p = str(df.at[idx_real_salvamento, "Perfil de Identidade"]).strip()
+                        idx_p = lista_perfis.index(v_p) if v_p in lista_perfis else 2
+                        perfil_i = st.selectbox("Perfil de Identidade:", lista_perfis, index=idx_p)
+                        vinculo_i = st.text_input("Vinculação Comunitária:", value=str(df.at[idx_real_salvamento, "Vinculação Comunitária"]))
+                    with col_dir:
+                        st.markdown("### 🏢 Localização Geográfica")
+                        rua_i = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_a}, nº  - {bairro_auto}" if rua_a else v_end_antigo)
+                        muni_i = st.text_input("Município de Residência:", value=cid_auto if cid_auto else v_muni)
+                        estado_i = st.text_input("UF / Estado:", value=uf_auto if uf_auto else v_est)
+                    
+                    st.markdown("---")
+                    coment_i = st.text_area("🗒️ Comentários / Histórico Comunitário:", value=v_com_antigo, height=100)
+                    aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
+                    
+                    if st.form_submit_button("💾 Gerar Linha Alterada para o Excel", use_container_width=True):
+                        if not aceite_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
+                        else:
+                            st.success("🎉 Linha estruturada! Clique no ícone de cópia para colar no seu Excel.")
+                            df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
+                            st.dataframe(df_copia, use_container_width=False)
+
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
         st.subheader("🆕 Criar Novo Cadastro Comunitário")
@@ -328,14 +292,155 @@ if st.session_state["acesso_liberado"]:
                 if not n_nome.strip(): st.error("O campo 'Nome Civil' é obrigatório!")
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
-                    st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no Excel.")
+                    st.success(f"🎉 Linha gerada! Clique no ícone de cópia (📋) para colar no Excel.")
+                    agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
+                    st.dataframe(df_novo_membro_copia, use_container_width=False)
+
+    # --- ABA 4: MAPA POR MUNICÍPIO ---
+    elif menu == "🏙️ Mapa por Município":
+        st.title("🏙️ Mapa de Distribuição por Município")
+        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e calcular a densidade local.")
+        
+        if not df.empty and "Município" in df.columns:
+            df_filtrado_cidades = df[df["Município"].str.strip() != ""]
+            df_filtrado_cidades = df_filtrado_cidades[df_filtrado_cidades["Município"].str.lower() != "nan"]
+            lista_municipios_reais = sorted(df_filtrado_cidades["Município"].unique())
+            
+            if lista_municipios_reais:
+                cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", lista_municipios_reais)
+                membros_da_cidade = df[df["Município"].str.lower().str.strip() == cidade_selecionada.lower().strip()]
+                total_membros = len(membros_da_cidade)
+                
+                st.metric(f"📍 Membros em {cidade_selecionada}", total_membros)
+                
+                cep_referencia = ""
+                for _, row in membros_da_cidade.iterrows():
+                    if "Cep" in df.columns and str(row["Cep"]).strip().isdigit() and len(str(row["Cep"]).strip()) == 8:
+                        cep_referencia = str(row["Cep"]).strip()
+                        break
+                        
+                latitude_descoberta, longitude_descoberta = None, None
+                cidade_busca_chave = cidade_selecionada.lower().strip()
+                
+                if cidade_busca_chave in coordenadas_cidades:
+                    coords_contingencia = coordenadas_cidades[cidade_busca_chave]
+                    latitude_descoberta = float(coords_contingencia[0])
+                    longitude_descoberta = float(coords_contingencia[1])
+                
+                if latitude_descoberta is None and cep_referencia:
+                    try:
+                        url_geo = f"https://thepro.com.br{cep_referencia}"
+                        req_geo = requests.get(url_geo, headers=headers_viacep, timeout=4).json()
+                        if "lat" in req_geo and "lng" in req_geo:
+    # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
+    elif menu == "📝 Editar Cadastro Existente":
+        st.subheader("📝 Editar Cadastro Comunitário")
+        df_validos = df[df["Nome Civil"].str.lower() != "nan"]
+        df_validos = df_validos[df_validos["Nome Civil"].str.strip() != ""]
+        nomes_cadastrados = sorted(df_validos["Nome Civil"].unique())
+        nome_alvo = st.selectbox("Selecione o Nome Civil para carregar:", nomes_cadastrados, key="nome_cadastro")
+        
+        if nome_alvo:
+            registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
+            if not registro_filtrado.empty:
+                idx_real_salvamento = int(registro_filtrado.index[0])
+
+                st.markdown("### 🏢 Validação Postal Geográfica")
+                cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
+                rua_a, bairro_auto, cid_auto, uf_auto = "", "", "", ""
+                if cep_busca.strip().isdigit() and len(cep_busca.strip()) == 8:
+                    try:
+                        req = requests.get(f"https://viacep.com.br{cep_busca.strip()}/json/", headers=headers_viacep, timeout=4)
+                        if req.status_code == 200:
+                            j_cep = req.json()
+                            if "erro" not in j_cep:
+                                rua_a, bairro_auto, cid_auto, uf_auto = j_cep.get("logradouro", ""), j_cep.get("bairro", ""), j_cep.get("localidade", ""), j_cep.get("uf", "")
+                                st.success(f"📍 ViaCEP Encontrado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
+                    except Exception: pass
+
+                v_carimbo = str(df.at[idx_real_salvamento, "Carimbo de data/hora"]).strip()
+                v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
+                v_est = str(df.at[idx_real_salvamento, "UF"]).strip()
+                v_end_antigo = str(df.at[idx_real_salvamento, "Endereço"]).strip()
+                v_com_antigo = str(df.at[idx_real_salvamento, "Comentários"]).strip()
+
+                with st.form("form_gps_editar_real"):
+                    col_esq, col_dir = st.columns(2)
+                    with col_esq:
+                        st.markdown("### 👤 Dados de Identificação")
+                        email_i = st.text_input("E-mail de Contato:", value=str(df.at[idx_real_salvamento, "E-mail"]))
+                        nome_j_i = st.text_input("Nome Judaico / Hebraico:", value=str(df.at[idx_real_salvamento, "Nome Judaico"]))
+                        tel_i = st.text_input("Número de telefone:", value=str(df.at[idx_real_salvamento, "Número de telefone"]))
+                        lista_perfis = ["Judeu", "Bnei Anussim", "Simpatizante"]
+                        v_p = str(df.at[idx_real_salvamento, "Perfil de Identidade"]).strip()
+                        idx_p = lista_perfis.index(v_p) if v_p in lista_perfis else 2
+                        perfil_i = st.selectbox("Perfil de Identidade:", lista_perfis, index=idx_p)
+                        vinculo_i = st.text_input("Vinculação Comunitária:", value=str(df.at[idx_real_salvamento, "Vinculação Comunitária"]))
+                    with col_dir:
+                        st.markdown("### 🏢 Localização Geográfica")
+                        rua_i = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_a}, nº  - {bairro_auto}" if rua_a else v_end_antigo)
+                        muni_i = st.text_input("Município de Residência:", value=cid_auto if cid_auto else v_muni)
+                        estado_i = st.text_input("UF / Estado:", value=uf_auto if uf_auto else v_est)
+                    
+                    st.markdown("---")
+                    coment_i = st.text_area("🗒️ Comentários / Histórico Comunitário:", value=v_com_antigo, height=100)
+                    aceite_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_edit")
+                    
+                    if st.form_submit_button("💾 Gerar Linha Alterada para o Excel", use_container_width=True):
+                        if not aceite_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
+                        else:
+                            st.success("🎉 Linha estruturada! Clique no ícone de cópia para colar no seu Excel.")
+                            df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
+                            st.dataframe(df_copia, use_container_width=False)
+
+    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
+    elif menu == "🆕 Criar Novo Cadastro do Zero":
+        st.subheader("🆕 Criar Novo Cadastro Comunitário")
+        n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
+        rua_n, bairro_n, muni_n, uf_n = "", "", "", ""
+        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
+            try:
+                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
+                if req_n.status_code == 200:
+                    j_n = req_n.json()
+                    if "erro" not in j_n:
+                        rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
+                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
+            except: pass
+
+        with st.form("form_gps_novo"):
+            col_esq, col_dir = st.columns(2)
+            with col_esq:
+                st.markdown("### 👤 Informações Pessoais")
+                n_nome = st.text_input("Nome Civil (Obrigatório):")
+                n_judaico = st.text_input("Nome Judaico / Hebraico:")
+                n_email = st.text_input("E-mail:")
+                n_telefone = st.text_input("Número de telefone (WhatsApp com DDD):")
+                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
+                n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
+            with col_dir:
+                st.markdown("### 🏡 Ajuste do Endereço")
+                n_rua = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_n}, nº  - {bairro_n}" if rua_n else "")
+                n_muni = st.text_input("Município / Cidade:", value=muni_n)
+                n_estado = st.text_input("UF / Estado:", value=uf_n)
+            
+            st.markdown("---")
+            n_coment = st.text_area("🗒️ Comentários / Histórico Comunitário Inicial:", value="", height=100)
+            n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
+            
+            if st.form_submit_button("💾 Gerar Nova Linha para o Excel", use_container_width=True):
+                if not n_nome.strip(): st.error("O campo 'Nome Civil' é obrigatório!")
+                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
+                else:
+                    st.success("🎉 Linha gerada! Clique no ícone de cópia (📋) para colar no Excel.")
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
     # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
-        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão.")
+        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e calcular a densidade local.")
         
         if not df.empty and "Município" in df.columns:
             df_filtrado_cidades = df[df["Município"].str.strip() != ""]
@@ -382,17 +487,13 @@ if st.session_state["acesso_liberado"]:
                     except: pass
                 
                 if latitude_descoberta is not None and longitude_descoberta is not None:
-                    # 🌟 VERSÃO MODO CLARO COM PYDECK INDEPENDENTE 🌟
-                    import pydeck as pdk
                     view_state_muni = pdk.ViewState(latitude=latitude_descoberta, longitude=longitude_descoberta, zoom=10, pitch=0)
-                    # Calcula o diâmetro proporcional ao número de membros
                     raio_calculado = max(1000, int(total_membros) * 800)
-                    
                     layer_muni = pdk.Layer(
                         "ScatterplotLayer",
                         data=pd.DataFrame([{"lat": latitude_descoberta, "lon": longitude_descoberta}]),
                         get_position="[lon, lat]",
-                        get_color="[0, 86, 179, 160]",  # Azul translúcido do seu design
+                        get_color="[0, 86, 179, 160]",  # Azul translúcido
                         get_radius=raio_calculado,
                     )
                     st.pydeck_chart(pdk.Deck(layers=[layer_muni], initial_view_state=view_state_muni, map_style="mapbox://styles/mapbox/light-v10"))
@@ -425,17 +526,14 @@ if st.session_state["acesso_liberado"]:
                     "lon": float(coords[1]), 
                     "uf_sigla": uf_chave.upper(), 
                     "quantidade": int(total),
-                    "raio": max(15000, int(total) * 12000) # Define tamanho visual no mapa nacional
+                    "raio": max(15000, int(total) * 12000)
                 })
         
         if len(lista_mapa_estado) > 0:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
             st.metric("🗺️ Estados Computados no Brasil", len(df_mapa_estado))
             
-            # 🌟 VERSÃO MODO CLARO COM PYDECK MACRO NACIONAL 🌟
-            import pydeck as pdk
             view_state_brasil = pdk.ViewState(latitude=-15.7942, longitude=-47.8822, zoom=4, pitch=0)
-            
             layer_estado = pdk.Layer(
                 "ScatterplotLayer",
                 data=df_mapa_estado,
