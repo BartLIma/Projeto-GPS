@@ -37,17 +37,21 @@ coordenadas_cidades = {
     "serra": [-20.1287, -40.3078], "cariacica": [-20.2639, -40.4201]
 }
 
+# 🌟 ADICIONADO: Coordenadas geográficas de todos os estados do Sul e Sudeste expandidos 🌟
 coordenadas_estados = {
     "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
     "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
-    "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729]
+    "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729],
+    "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000]
 }
 
+# 🌟 EXPANDIDO: Tradutor mestre nacional aceitando variações completas do Sul e Sudeste 🌟
 tradutor_uf = {
     "paraiba": "pb", "pb": "pb", "espirito santo": "es", "es": "es",
     "minas gerais": "mg", "mg": "mg", "pernambuco": "pe", "pe": "pe",
     "rio grande do norte": "rn", "rn": "rn", "ceara": "ce", "ce": "ce",
-    "bahia": "ba", "ba": "ba", "sao paulo": "sp", "sp": "sp", "rio de janeiro": "rj", "rj": "rj"
+    "bahia": "ba", "ba": "ba", "sao paulo": "sp", "sp": "sp", "rio de janeiro": "rj", "rj": "rj",
+    "parana": "pr", "pr": "pr", "santa catarina": "sc", "sc": "sc", "rio grande do sul": "rs", "rs": "rs"
 }
 
 # --- TELA DE LOGIN ---
@@ -64,7 +68,6 @@ if not st.session_state["acesso_liberado"]:
 
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
-    
     lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
     if not os.path.exists("projeto_gps.csv"):
@@ -150,20 +153,14 @@ if st.session_state["acesso_liberado"]:
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
-            # 🌟 CORREÇÃO CRÍTICA DA LINHA 160: Coordenadas desmembradas em colunas explícitas para o mapa ler 🌟
             muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
-                
-                # Injeta como colunas textuais nomeadas puras, travando o erro de zoom do Streamlit
-                df_muni_mapa = pd.DataFrame([{
-                    "latitude": float(coords[0]), 
-                    "longitude": float(coords[1])
-                }])
+                df_muni_mapa = pd.DataFrame([{"latitude": float(coords[0]), "longitude": float(coords[1])}])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
-                st.caption("ℹ️ Mapa indisponível para este município (Coordenadas não cadastradas internamente).")
+                st.caption("ℹ️ Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -175,7 +172,8 @@ if st.session_state["acesso_liberado"]:
         if nome_alvo:
             registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
             if not registro_filtrado.empty:
-                idx_real_salvamento = int(registro_filtrado.index)
+                # 🌟 CORREÇÃO CIRÚRGICA DA LINHA 178: Uso rígido do index[0] para aniquilar o erro do Pandas 🌟
+                idx_real_salvamento = int(registro_filtrado.index[0])
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
@@ -190,7 +188,6 @@ if st.session_state["acesso_liberado"]:
                                 st.success(f"📍 ViaCEP Encontrado: {rua_a}, {bairro_auto} - {cid_auto}/{uf_auto}")
                     except Exception: pass
 
-                # Preserva o carimbo de data/hora original gerado pelo formulário na edição
                 v_carimbo = str(df.at[idx_real_salvamento, "Carimbo de data/hora"]).strip()
                 v_muni = str(df.at[idx_real_salvamento, "Município"]).strip()
                 v_est = str(df.at[idx_real_salvamento, "UF"]).strip()
@@ -222,10 +219,11 @@ if st.session_state["acesso_liberado"]:
                     if st.form_submit_button("💾 Gerar Linha Alterada para o Excel", use_container_width=True):
                         if not aceite_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                         else:
-                            st.success("🎉 Linha estruturada! Passe o mouse sobre a tabela abaixo e clique no ícone de cópia para colar no seu Excel.")
-                            # 🌟 ALINHAMENTO: Gera a tabela incluindo o Carimbo preservado na primeira coluna
+                            st.success("🎉 Linha estruturada! Clique no ícone de cópia para colar no seu Excel.")
                             df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
                             st.dataframe(df_copia, use_container_width=False)
+            else: st.error("Membro não localizado na base de dados.")
+
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
         st.subheader("🆕 Criar Novo Cadastro Comunitário")
@@ -237,10 +235,7 @@ if st.session_state["acesso_liberado"]:
                 if req_n.status_code == 200:
                     j_n = req_n.json()
                     if "erro" not in j_n:
-                        rua_n = j_n.get("logradouro", "")
-                        bairro_n = j_n.get("bairro", "")
-                        muni_n = j_n.get("localidade", "")
-                        uf_n = j_n.get("uf", "")
+                        rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
                         st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
             except: pass
 
@@ -269,13 +264,10 @@ if st.session_state["acesso_liberado"]:
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no Excel.")
-                    
                     import datetime
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-
     # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
@@ -286,7 +278,6 @@ if st.session_state["acesso_liberado"]:
             for muni_nome, total in contagem_muni.items():
                 if muni_nome in coordenadas_cidades:
                     coords = coordenadas_cidades[muni_nome]
-                    # 🌟 CORREÇÃO DA LINHA 284: Coordenadas separadas por índice [0] e [1] em formato float puro 🌟
                     lista_mapa_muni.append({
                         "latitude": float(coords[0]), 
                         "longitude": float(coords[1]), 
@@ -297,24 +288,33 @@ if st.session_state["acesso_liberado"]:
         if len(lista_mapa_muni) > 0:
             df_mapa_muni = pd.DataFrame(lista_mapa_muni)
             st.map(df_mapa_muni, size="size", color="#0056b3")
-            st.markdown("### 📊 Densidade por Cidade:")
+            st.markdown("### 📊 Densidade por Cidade Mapeada:")
             for item in lista_mapa_muni: st.write(f"• **{item['municipio']}:** {item['quantidade']} membro(s).")
-        else: st.warning("⚠️ Nenhuma cidade correspondente configurada.")
+        else: st.warning("⚠️ Nenhuma cidade correspondente configurada na tabela interna.")
 
-    # --- ABA 5: MAPA POR ESTADO ---
+    # --- ABA 5: MAPA POR ESTADO (TOTALMENTE AUTÔNOMO E SEM FILTROS EXCLUSIVOS) ---
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         lista_mapa_estado = []
+        
         if not df.empty and "UF" in df.columns:
+            # 🌟 RESOLVIDO: Dicionário lê e traduz todas as linhas direto da coluna UF sem depender de cidades
             somas_estados = {}
             for _, row in df.iterrows():
                 uf_bruta = str(row["UF"]).strip().lower().replace("í", "i").replace("ã", "a")
+                
+                # Se estiver em branco ou nulo, pula de forma segura para não corromper o cálculo
+                if not uf_bruta or uf_bruta == "nan":
+                    continue
+                    
                 uf_oficial = tradutor_uf.get(uf_bruta, uf_bruta)
-                if uf_oficial in coordenadas_estados: somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
+                if uf_oficial in coordenadas_estados:
+                    somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
+            
+            # Gera os dados finais crescentes para todos os estados computados
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
-                # 🌟 CORREÇÃO DA LINHA 305: Coordenadas separadas por índice [0] e [1] em formato float puro 🌟
                 lista_mapa_estado.append({
                     "latitude": float(coords[0]), 
                     "longitude": float(coords[1]), 
@@ -322,12 +322,17 @@ if st.session_state["acesso_liberado"]:
                     "quantidade": int(total), 
                     "size": int(total) * 150
                 })
+        
         if len(lista_mapa_estado) > 0:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
+            st.metric("🗺️ Estados Computados no Brasil", len(df_mapa_estado))
             st.map(df_mapa_estado, size="size", color="#d32f2f")
-            st.markdown("### 📊 Densidade Consolidada por Estado (UF):")
-            for item in lista_mapa_estado: st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s).")
-        else: st.warning("⚠️ Nenhum estado correspondente configurado.")
+            
+            st.markdown("### 📊 Densidade Real Consolidada por Estado (UF):")
+            for item in lista_mapa_estado: 
+                st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
+        else: 
+            st.warning("⚠️ Nenhum estado cadastrado foi localizado na planilha.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
