@@ -234,87 +234,74 @@ if st.session_state["acesso_liberado"]:
                             df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
                             st.dataframe(df_copia, use_container_width=False)
 
-    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
-    elif menu == "🆕 Criar Novo Cadastro do Zero":
-        st.subheader("🆕 Criar Novo Cadastro Comunitário")
-        n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
-        rua_n, bairro_n, muni_n, uf_n = "", "", "", ""
-        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
-            try:
-                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
-                if req_n.status_code == 200:
-                    j_n = req_n.json()
-                    if "erro" not in j_n:
-                        rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
-                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
-            except: pass
-
-        with st.form("form_gps_novo"):
-            col_esq, col_dir = st.columns(2)
-            with col_esq:
-                st.markdown("### 👤 Informações Pessoais")
-                n_nome = st.text_input("Nome Civil (Obrigatório):")
-                n_judaico = st.text_input("Nome Judaico / Hebraico:")
-                n_email = st.text_input("E-mail:")
-                n_telefone = st.text_input("Número de telefone (WhatsApp com DDD):")
-                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
-                n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
-            with col_dir:
-                st.markdown("### 🏡 Ajuste do Endereço")
-                n_rua = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_n}, nº  - {bairro_n}" if rua_n else "")
-                n_muni = st.text_input("Município / Cidade:", value=muni_n)
-                n_estado = st.text_input("UF / Estado:", value=uf_n)
-            
-            st.markdown("---")
-            n_coment = st.text_area("🗒️ Comentários / Histórico Comunitário Inicial:", value="", height=100)
-            n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
-            
-            if st.form_submit_button("💾 Gerar Nova Linha para o Excel", use_container_width=True):
-                if not n_nome.strip(): st.error("O campo 'Nome Civil' é obrigatório!")
-                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
-                else:
-                    st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no Excel.")
-                    import datetime
-                    agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
-                    st.dataframe(df_novo_membro_copia, use_container_width=False)
-    # --- ABA 4: MAPA POR MUNICÍPIO ---
+      # --- ABA 4: MAPA POR MUNICÍPIO (DINÂMICO E AUTOMATIZADO DIRECTO DA PLANILHA) ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
-        st.markdown("Selecione um município na lista abaixo para focar a visão e ver o peso da concentração local.")
-        
-        lista_mapa_muni = []
-        cidades_disponiveis = []
+        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e calcular a densidade local.")
         
         if not df.empty and "Município" in df.columns:
-            contagem_muni = df["Município"].str.lower().str.strip().value_counts()
+            # 🌟 EVOLUÇÃO: Extrai a lista de cidades únicas cadastradas diretamente na coluna Município da planilha
+            df_filtrado_cidades = df[df["Município"].str.strip() != ""]
+            df_filtrado_cidades = df_filtrado_cidades[df_filtrado_cidades["Município"].str.lower() != "nan"]
             
-            for muni_nome, total in contagem_muni.items():
-                if muni_nome in coordenadas_cidades:
-                    cidades_disponiveis.append(muni_nome.title())
-                    coords = coordenadas_cidades[muni_nome]
-                    # 🌟 CORREÇÃO CIRÚRGICA DAS LINHAS MACRO: Separação de eixos com float(coords[0]) e float(coords[1])
-                    lista_mapa_muni.append({
-                        "latitude": float(coords[0]), 
-                        "longitude": float(coords[1]), 
-                        "municipio": muni_nome.title(), 
-                        "quantidade": int(total), 
-                        "size": int(total) * 45
-                    })
-        
-        if len(lista_mapa_muni) > 0:
-            df_mapa_muni = pd.DataFrame(lista_mapa_muni)
+            lista_municipios_reais = sorted(df_filtrado_cidades["Município"].unique())
             
-            # Caixa de escolha com ordenação alfabética completa
-            cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", sorted(cidades_disponiveis))
-            
-            df_mapa_filtrado = df_mapa_muni[df_mapa_muni["municipio"] == cidade_selecionada]
-            qtd_membros_cidade = int(df_mapa_filtrado["quantidade"].values[0])
-            
-            st.metric(f"📍 Membros em {cidade_selecionada}", qtd_membros_cidade)
-            st.map(df_mapa_filtrado, size="size", color="#0056b3")
+            if lista_municipios_reais:
+                # Caixa de escolha com TODOS os municípios que constam na sua planilha
+                cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", lista_municipios_reais)
+                
+                # Filtra os membros da cidade selecionada e calcula a densidade real
+                membros_da_cidade = df[df["Município"].str.lower().str.strip() == cidade_selecionada.lower().strip()]
+                total_membros = len(membros_da_cidade)
+                
+                st.metric(f"📍 Membros em {cidade_selecionada}", total_membros)
+                
+                # 🌟 GEOLOCALIZAÇÃO AUTOMÁTICA: Busca o CEP do primeiro membro da cidade para descobrir as coordenadas via API pública
+                cep_referencia = ""
+                for _, row in membros_da_cidade.iterrows():
+                    if "Cep" in df.columns and str(row["Cep"]).strip().isdigit() and len(str(row["Cep"]).strip()) == 8:
+                        cep_reference = str(row["Cep"]).strip()
+                        break
+                        
+                latitude_descoberta, longitude_descoberta = None, None
+                
+                # Se encontrou um CEP válido na cidade, consulta as coordenadas em tempo real
+                if cep_reference:
+                    try:
+                        # API de geocodificação postal pública e gratuita de altíssima velocidade
+                        url_geo = f"https://thepro.com.br{cep_reference}"
+                        req_geo = requests.get(url_geo, headers=headers_viacep, timeout=4).json()
+                        if "lat" in req_geo and "lng" in req_geo:
+                            latitude_descoberta = float(req_geo["lat"])
+                            longitude_descoberta = float(req_geo["lng"])
+                    except: pass
+                
+                # Fallback de segurança: Se o CEP falhar, usa a busca nominativa direta na API do OpenStreetMap
+                if latitude_descoberta is None:
+                    try:
+                        url_osm = f"https://openstreetmap.org{cidade_selecionada},+Brazil"
+                        req_osm = requests.get(url_osm, headers=headers_viacep, timeout=4).json()
+                        if req_osm:
+                            latitude_descoberta = float(req_osm[0]["lat"])
+                            longitude_descoberta = float(req_osm[0]["lon"])
+                    except: pass
+                
+                # Renderiza o ponto proporcional caso tenha descoberto a localização
+                if latitude_descoberta is not None and longitude_descoberta is not None:
+                    tamanho_circulo = int(total_membros) * 45
+                    df_ponto_mapa = pd.DataFrame([{
+                        "latitude": latitude_descoberta,
+                        "longitude": longitude_descoberta,
+                        "size": tamanho_circulo
+                    }])
+                    
+                    st.map(df_ponto_mapa, size="size", color="#0056b3")
+                else:
+                    st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas automatizadas para {cidade_selecionada}. Digite os dados ou confira o CEP do cadastro.")
+            else:
+                st.warning("⚠️ Nenhum município válido foi localizado na coluna de registros.")
         else:
-            st.warning("⚠️ Nenhuma cidade cadastrada na planilha possui coordenadas registradas na tabela mestre interna.")
+            st.warning("⚠️ A coluna 'Município' não foi localizada na estrutura do arquivo CSV.")
 
     # --- ABA 5: MAPA POR ESTADO ---
     elif menu == "🗺️ Mapa por Estado":
@@ -335,7 +322,6 @@ if st.session_state["acesso_liberado"]:
             
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
-                # 🌟 CORREÇÃO CIRÚRGICA DAS LINHAS MACRO: Separação de eixos com float(coords[0]) e float(coords[1])
                 lista_mapa_estado.append({
                     "latitude": float(coords[0]), 
                     "longitude": float(coords[1]), 
