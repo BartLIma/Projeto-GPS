@@ -37,21 +37,23 @@ coordenadas_cidades = {
     "serra": [-20.1287, -40.3078], "cariacica": [-20.2639, -40.4201]
 }
 
-# 🌟 ADICIONADO: Coordenadas geográficas de todos os estados do Sul e Sudeste expandidos 🌟
+# 🌟 ATUALIZADO: Incluído o Estado do Amazonas (AM) com coordenadas geográficas centrais
 coordenadas_estados = {
     "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
     "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
     "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729],
-    "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000]
+    "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000],
+    "am": [-3.1190, -60.0217]
 }
 
-# 🌟 EXPANDIDO: Tradutor mestre nacional aceitando variações completas do Sul e Sudeste 🌟
+# 🌟 ATUALIZADO: Incluído o Amazonas e a sigla "am" no tradutor inteligente nacional
 tradutor_uf = {
     "paraiba": "pb", "pb": "pb", "espirito santo": "es", "es": "es",
     "minas gerais": "mg", "mg": "mg", "pernambuco": "pe", "pe": "pe",
     "rio grande do norte": "rn", "rn": "rn", "ceara": "ce", "ce": "ce",
     "bahia": "ba", "ba": "ba", "sao paulo": "sp", "sp": "sp", "rio de janeiro": "rj", "rj": "rj",
-    "parana": "pr", "pr": "pr", "santa catarina": "sc", "sc": "sc", "rio grande do sul": "rs", "rs": "rs"
+    "parana": "pr", "pr": "pr", "santa catarina": "sc", "sc": "sc", "rio grande do sul": "rs", "rs": "rs",
+    "amazonas": "am", "am": "am"
 }
 
 # --- TELA DE LOGIN ---
@@ -153,11 +155,12 @@ if st.session_state["acesso_liberado"]:
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
+            # Mapa individual focado estritamente na linha selecionada na consulta
             muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
-                df_muni_mapa = pd.DataFrame([{"latitude": float(coords[0]), "longitude": float(coords[1])}])
+                df_muni_mapa = pd.DataFrame([{"latitude": float(coords), "longitude": float(coords)}])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
                 st.caption("ℹ️ Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
@@ -172,8 +175,7 @@ if st.session_state["acesso_liberado"]:
         if nome_alvo:
             registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
             if not registro_filtrado.empty:
-                # 🌟 CORREÇÃO CIRÚRGICA DA LINHA 178: Uso rígido do index[0] para aniquilar o erro do Pandas 🌟
-                idx_real_salvamento = int(registro_filtrado.index[0])
+                idx_real_salvamento = int(registro_filtrado.index)
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
@@ -268,56 +270,70 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-    # --- ABA 4: MAPA POR MUNICÍPIO ---
+    # --- ABA 4: MAPA POR MUNICÍPIO (AGORA COM CAIXA DE ESCOLHA INDIVIDUAL DE CIDADES) ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
-        st.markdown("Visualização com círculos proporcionais ao número de membros em cada cidade.")
+        st.markdown("Selecione um município na lista abaixo para focar a visão e ver o peso da concentração local.")
+        
         lista_mapa_muni = []
+        cidades_disponiveis = []
+        
         if not df.empty and "Município" in df.columns:
             contagem_muni = df["Município"].str.lower().str.strip().value_counts()
+            
+            # Filtra apenas os municípios que possuem coordenadas registradas na nossa base mestre
             for muni_nome, total in contagem_muni.items():
                 if muni_nome in coordenadas_cidades:
+                    cidades_disponiveis.append(muni_nome.title())
                     coords = coordenadas_cidades[muni_nome]
                     lista_mapa_muni.append({
-                        "latitude": float(coords[0]), 
-                        "longitude": float(coords[1]), 
+                        "latitude": float(coords), 
+                        "longitude": float(coords), 
                         "municipio": muni_nome.title(), 
                         "quantidade": int(total), 
-                        "size": int(total) * 25
+                        "size": int(total) * 45  # Aumentado o diâmetro para melhorar a leitura focalizada
                     })
+        
         if len(lista_mapa_muni) > 0:
             df_mapa_muni = pd.DataFrame(lista_mapa_muni)
-            st.map(df_mapa_muni, size="size", color="#0056b3")
-            st.markdown("### 📊 Densidade por Cidade Mapeada:")
-            for item in lista_mapa_muni: st.write(f"• **{item['municipio']}:** {item['quantidade']} membro(s).")
-        else: st.warning("⚠️ Nenhuma cidade correspondente configurada na tabela interna.")
+            
+            # 🌟 INTERATIVIDADE SOLICITADA 2: Caixa de escolha para focar na cidade desejada 🌟
+            cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", sorted(cidades_disponiveis))
+            
+            # Filtra a tabela do mapa para exibir apenas a linha da cidade que você escolheu
+            df_mapa_filtrado = df_mapa_muni[df_mapa_muni["municipio"] == cidade_selecionada]
+            qtd_membros_cidade = int(df_mapa_filtrado["quantidade"].values)
+            
+            st.metric(f"📍 Membros em {cidade_selecionada}", qtd_membros_cidade)
+            
+            # Renderiza o mapa com zoom automático travado em cima da cidade escolhida
+            st.map(df_mapa_filtrado, size="size", color="#0056b3")
+        else:
+            st.warning("⚠️ Nenhuma cidade cadastrada na planilha possui coordenadas registradas na tabela mestre interna.")
 
-    # --- ABA 5: MAPA POR ESTADO (TOTALMENTE AUTÔNOMO E SEM FILTROS EXCLUSIVOS) ---
+    # --- ABA 5: MAPA POR ESTADO (COM INTEGRAÇÃO COMPLETA DO AMAZONAS) ---
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         lista_mapa_estado = []
         
         if not df.empty and "UF" in df.columns:
-            # 🌟 RESOLVIDO: Dicionário lê e traduz todas as linhas direto da coluna UF sem depender de cidades
             somas_estados = {}
             for _, row in df.iterrows():
                 uf_bruta = str(row["UF"]).strip().lower().replace("í", "i").replace("ã", "a")
-                
-                # Se estiver em branco ou nulo, pula de forma segura para não corromper o cálculo
                 if not uf_bruta or uf_bruta == "nan":
                     continue
-                    
+                
+                # Traduz textos como "Amazonas" ou "Mg" para a sigla oficial "am" ou "mg"
                 uf_oficial = tradutor_uf.get(uf_bruta, uf_bruta)
                 if uf_oficial in coordenadas_estados:
                     somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
             
-            # Gera os dados finais crescentes para todos os estados computados
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
                 lista_mapa_estado.append({
-                    "latitude": float(coords[0]), 
-                    "longitude": float(coords[1]), 
+                    "latitude": float(coords), 
+                    "longitude": float(coords), 
                     "uf_sigla": uf_chave.upper(), 
                     "quantidade": int(total), 
                     "size": int(total) * 150
