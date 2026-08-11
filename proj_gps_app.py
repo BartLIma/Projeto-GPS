@@ -234,13 +234,13 @@ if st.session_state["acesso_liberado"]:
                             df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
                             st.dataframe(df_copia, use_container_width=False)
 
-      # --- ABA 4: MAPA POR MUNICÍPIO (DINÂMICO E AUTOMATIZADO DIRECTO DA PLANILHA) ---
+         # --- ABA 4: MAPA POR MUNICÍPIO (DINÂMICO E AUTOMATIZADO DIRETO DA PLANILHA) ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e calcular a densidade local.")
         
         if not df.empty and "Município" in df.columns:
-            # 🌟 EVOLUÇÃO: Extrai a lista de cidades únicas cadastradas diretamente na coluna Município da planilha
+            # Extrais a lista de cidades únicas cadastradas diretamente na coluna Município da planilha
             df_filtrado_cidades = df[df["Município"].str.strip() != ""]
             df_filtrado_cidades = df_filtrado_cidades[df_filtrado_cidades["Município"].str.lower() != "nan"]
             
@@ -256,27 +256,26 @@ if st.session_state["acesso_liberado"]:
                 
                 st.metric(f"📍 Membros em {cidade_selecionada}", total_membros)
                 
-                # 🌟 GEOLOCALIZAÇÃO AUTOMÁTICA: Busca o CEP do primeiro membro da cidade para descobrir as coordenadas via API pública
+                # 🌟 CORREÇÃO CIRÚRGICA DA LINHA 269: Unificação do nome da variável cep_referencia 🌟
                 cep_referencia = ""
                 for _, row in membros_da_cidade.iterrows():
                     if "Cep" in df.columns and str(row["Cep"]).strip().isdigit() and len(str(row["Cep"]).strip()) == 8:
-                        cep_reference = str(row["Cep"]).strip()
+                        cep_referencia = str(row["Cep"]).strip()
                         break
                         
                 latitude_descoberta, longitude_descoberta = None, None
                 
                 # Se encontrou um CEP válido na cidade, consulta as coordenadas em tempo real
-                if cep_reference:
+                if cep_referencia:
                     try:
-                        # API de geocodificação postal pública e gratuita de altíssima velocidade
-                        url_geo = f"https://thepro.com.br{cep_reference}"
+                        url_geo = f"https://thepro.com.br{cep_referencia}"
                         req_geo = requests.get(url_geo, headers=headers_viacep, timeout=4).json()
                         if "lat" in req_geo and "lng" in req_geo:
                             latitude_descoberta = float(req_geo["lat"])
                             longitude_descoberta = float(req_geo["lng"])
                     except: pass
                 
-                # Fallback de segurança: Se o CEP falhar, usa a busca nominativa direta na API do OpenStreetMap
+                # Fallback de segurança: Se o CEP falhar, usa a busca nominativa direta no OpenStreetMap
                 if latitude_descoberta is None:
                     try:
                         url_osm = f"https://openstreetmap.org{cidade_selecionada},+Brazil"
