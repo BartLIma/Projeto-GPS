@@ -65,7 +65,6 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    # 🌟 ATUALIZADO: "Carimbo de data/hora" agora figura como a primeira coluna oficial
     lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
     if not os.path.exists("projeto_gps.csv"):
@@ -146,18 +145,25 @@ if st.session_state["acesso_liberado"]:
                 st.write(f"**Perfil de Identidade:** {df.at[p_idx, 'Perfil de Identidade']}")
                 st.write(f"**Vinculação Comunitária:** {df.at[p_idx, 'Vinculação Comunitária']}")
                 st.write(f"**Localidade:** {df.at[p_idx, 'Município']} / {df.at[p_idx, 'UF']}")
-                # 🌟 ADICIONADO: Exibe a data/hora do registro na consulta para controle histórico
                 st.write(f"**Data de Cadastro:** {df.at[p_idx, 'Carimbo de data/hora']}")
             
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
+            # 🌟 CORREÇÃO CRÍTICA DA LINHA 160: Coordenadas desmembradas em colunas explícitas para o mapa ler 🌟
             muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
-                df_muni_mapa = pd.DataFrame([{"latitude": coords, "longitude": coords}])
+                
+                # Injeta como colunas textuais nomeadas puras, travando o erro de zoom do Streamlit
+                df_muni_mapa = pd.DataFrame([{
+                    "latitude": float(coords[0]), 
+                    "longitude": float(coords[1])
+                }])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
+            else:
+                st.caption("ℹ️ Mapa indisponível para este município (Coordenadas não cadastradas internamente).")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -231,7 +237,10 @@ if st.session_state["acesso_liberado"]:
                 if req_n.status_code == 200:
                     j_n = req_n.json()
                     if "erro" not in j_n:
-                        rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
+                        rua_n = j_n.get("logradouro", "")
+                        bairro_n = j_n.get("bairro", "")
+                        muni_n = j_n.get("localidade", "")
+                        uf_n = j_n.get("uf", "")
                         st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
             except: pass
 
@@ -261,7 +270,6 @@ if st.session_state["acesso_liberado"]:
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no Excel.")
                     
-                    # 🌟 INTRALÓGICA: Cria uma estampa de data/hora atualizada do sistema para o novo cadastro
                     import datetime
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     
@@ -278,7 +286,14 @@ if st.session_state["acesso_liberado"]:
             for muni_nome, total in contagem_muni.items():
                 if muni_nome in coordenadas_cidades:
                     coords = coordenadas_cidades[muni_nome]
-                    lista_mapa_muni.append({"latitude": coords, "longitude": coords, "municipio": muni_nome.title(), "quantidade": int(total), "size": int(total) * 25})
+                    # 🌟 CORREÇÃO DA LINHA 284: Coordenadas separadas por índice [0] e [1] em formato float puro 🌟
+                    lista_mapa_muni.append({
+                        "latitude": float(coords[0]), 
+                        "longitude": float(coords[1]), 
+                        "municipio": muni_nome.title(), 
+                        "quantidade": int(total), 
+                        "size": int(total) * 25
+                    })
         if len(lista_mapa_muni) > 0:
             df_mapa_muni = pd.DataFrame(lista_mapa_muni)
             st.map(df_mapa_muni, size="size", color="#0056b3")
@@ -299,7 +314,14 @@ if st.session_state["acesso_liberado"]:
                 if uf_oficial in coordenadas_estados: somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
-                lista_mapa_estado.append({"latitude": coords, "longitude": coords, "uf_sigla": uf_chave.upper(), "quantidade": int(total), "size": int(total) * 150})
+                # 🌟 CORREÇÃO DA LINHA 305: Coordenadas separadas por índice [0] e [1] em formato float puro 🌟
+                lista_mapa_estado.append({
+                    "latitude": float(coords[0]), 
+                    "longitude": float(coords[1]), 
+                    "uf_sigla": uf_chave.upper(), 
+                    "quantidade": int(total), 
+                    "size": int(total) * 150
+                })
         if len(lista_mapa_estado) > 0:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
             st.map(df_mapa_estado, size="size", color="#d32f2f")
