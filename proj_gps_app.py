@@ -28,16 +28,22 @@ if "acesso_liberado" not in st.session_state:
 if "indice_persona_consultada" not in st.session_state:
     st.session_state["indice_persona_consultada"] = None
 
-# --- TABELA INTERNA DE COORDENADAS MESTRE (MUNICÍPIOS E ESTADOS) ---
+# --- 🌟 TABELA INTERNA DE COORDENADAS MESTRE NACIONAL EXPANDIDA 🌟 ---
+# Adicionado Manaus e todos os polos que você utiliza para a lista não ficar vazia
 coordenadas_cidades = {
-    "vitoria": [-20.3155, -40.3128], "joao pessoa": [-7.1198, -34.8450],
-    "campina grande": [-7.2247, -35.8772], "santa rita": [-7.1139, -34.9736],
-    "patos": [-7.0269, -37.2797], "guarabira": [-6.8547, -35.4914],
-    "cabedelo": [-6.9811, -34.8339], "vila velha": [-20.3297, -40.2925],
-    "serra": [-20.1287, -40.3078], "cariacica": [-20.2639, -40.4201]
+    "vitoria": [-20.3155, -40.3128], 
+    "joao pessoa": [-7.1198, -34.8450],
+    "campina grande": [-7.2247, -35.8772], 
+    "santa rita": [-7.1139, -34.9736],
+    "patos": [-7.0269, -37.2797], 
+    "guarabira": [-6.8547, -35.4914],
+    "cabedelo": [-6.9811, -34.8339], 
+    "vila velha": [-20.3297, -40.2925],
+    "serra": [-20.1287, -40.3078], 
+    "cariacica": [-20.2639, -40.4201],
+    "manaus": [-3.1190, -60.0217]
 }
 
-# 🌟 ATUALIZADO: Incluído o Estado do Amazonas (AM) com coordenadas geográficas centrais
 coordenadas_estados = {
     "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
     "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
@@ -46,7 +52,6 @@ coordenadas_estados = {
     "am": [-3.1190, -60.0217]
 }
 
-# 🌟 ATUALIZADO: Incluído o Amazonas e a sigla "am" no tradutor inteligente nacional
 tradutor_uf = {
     "paraiba": "pb", "pb": "pb", "espirito santo": "es", "es": "es",
     "minas gerais": "mg", "mg": "mg", "pernambuco": "pe", "pe": "pe",
@@ -70,6 +75,7 @@ if not st.session_state["acesso_liberado"]:
 
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
+    
     lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
     if not os.path.exists("projeto_gps.csv"):
@@ -155,15 +161,18 @@ if st.session_state["acesso_liberado"]:
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
-            # Mapa individual focado estritamente na linha selecionada na consulta
+            # 🌟 CORREÇÃO CIRÚRGICA DA LINHA 163: Separação estrita de eixos de índice em float para o mapa reativo rodar sem quebras 🌟
             muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
-                df_muni_mapa = pd.DataFrame([{"latitude": float(coords), "longitude": float(coords)}])
+                df_muni_mapa = pd.DataFrame([{
+                    "latitude": float(coords[0]), 
+                    "longitude": float(coords[1])
+                }])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
-                st.caption("ℹ️ Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
+                st.caption("ℹ nighttime. Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -175,7 +184,7 @@ if st.session_state["acesso_liberado"]:
         if nome_alvo:
             registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
             if not registro_filtrado.empty:
-                idx_real_salvamento = int(registro_filtrado.index)
+                idx_real_salvamento = int(registro_filtrado.index[0])
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
@@ -224,7 +233,6 @@ if st.session_state["acesso_liberado"]:
                             st.success("🎉 Linha estruturada! Clique no ícone de cópia para colar no seu Excel.")
                             df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
                             st.dataframe(df_copia, use_container_width=False)
-            else: st.error("Membro não localizado na base de dados.")
 
     # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
     elif menu == "🆕 Criar Novo Cadastro do Zero":
@@ -270,7 +278,7 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-       # --- ABA 4: MAPA POR MUNICÍPIO (AGORA COM CAIXA DE ESCOLHA INDIVIDUAL DE CIDADES) ---
+    # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione um município na lista abaixo para focar a visão e ver o peso da concentração local.")
@@ -281,12 +289,11 @@ if st.session_state["acesso_liberado"]:
         if not df.empty and "Município" in df.columns:
             contagem_muni = df["Município"].str.lower().str.strip().value_counts()
             
-            # Filtra apenas os municípios que possuem coordenadas registradas na nossa base mestre
             for muni_nome, total in contagem_muni.items():
                 if muni_nome in coordenadas_cidades:
                     cidades_disponiveis.append(muni_nome.title())
                     coords = coordenadas_cidades[muni_nome]
-                    # 🌟 CORREÇÃO CRÍTICA: Isola o índice [0] para latitude e [1] para longitude em float puro 🌟
+                    # 🌟 CORREÇÃO CIRÚRGICA DAS LINHAS MACRO: Separação de eixos com float(coords[0]) e float(coords[1])
                     lista_mapa_muni.append({
                         "latitude": float(coords[0]), 
                         "longitude": float(coords[1]), 
@@ -298,21 +305,18 @@ if st.session_state["acesso_liberado"]:
         if len(lista_mapa_muni) > 0:
             df_mapa_muni = pd.DataFrame(lista_mapa_muni)
             
-            # Caixa de escolha para focar na cidade desejada
+            # Caixa de escolha com ordenação alfabética completa
             cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", sorted(cidades_disponiveis))
             
-            # Filtra a tabela do mapa para exibir apenas a linha da cidade que você escolheu
             df_mapa_filtrado = df_mapa_muni[df_mapa_muni["municipio"] == cidade_selecionada]
             qtd_membros_cidade = int(df_mapa_filtrado["quantidade"].values[0])
             
             st.metric(f"📍 Membros em {cidade_selecionada}", qtd_membros_cidade)
-            
-            # Renderiza o mapa com zoom automático travado em cima da cidade escolhida
             st.map(df_mapa_filtrado, size="size", color="#0056b3")
         else:
             st.warning("⚠️ Nenhuma cidade cadastrada na planilha possui coordenadas registradas na tabela mestre interna.")
 
-    # --- ABA 5: MAPA POR ESTADO (COM INTEGRAÇÃO COMPLETA DO AMAZONAS) ---
+    # --- ABA 5: MAPA POR ESTADO ---
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
@@ -325,14 +329,13 @@ if st.session_state["acesso_liberado"]:
                 if not uf_bruta or uf_bruta == "nan":
                     continue
                 
-                # Traduz textos como "Amazonas" ou "Mg" para a sigla oficial "am" ou "mg"
                 uf_oficial = tradutor_uf.get(uf_bruta, uf_bruta)
                 if uf_oficial in coordenadas_estados:
                     somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
             
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
-                # 🌟 CORREÇÃO CRÍTICA: Isola o índice [0] para latitude e [1] para longitude em float puro 🌟
+                # 🌟 CORREÇÃO CIRÚRGICA DAS LINHAS MACRO: Separação de eixos com float(coords[0]) e float(coords[1])
                 lista_mapa_estado.append({
                     "latitude": float(coords[0]), 
                     "longitude": float(coords[1]), 
