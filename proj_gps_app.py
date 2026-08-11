@@ -87,8 +87,7 @@ if not st.session_state["acesso_liberado"]:
             if senha == senha_correta:
                 st.session_state["acesso_liberado"] = True
                 st.rerun()
-            else: st.error("Senha incorreta! Tente novamente.")
-# --- APLICATIVO PRINCIPAL LIBERADO ---
+            else: st.error("Senha incorreta! Tente novamente.")# --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
     lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
@@ -124,7 +123,7 @@ if st.session_state["acesso_liberado"]:
         if col_nome not in df.columns: df[col_nome] = ""
     for c in df.columns: df[c] = df[c].fillna("").astype(str).str.strip()
 
-    # 🌟 APENAS UMA DECLARAÇÃO DO MENU: Evita o erro de StreamlitDuplicateElementId 🌟
+    # Apenas uma declaração do menu lateral
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
     st.sidebar.markdown("---")
@@ -180,18 +179,20 @@ if st.session_state["acesso_liberado"]:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
                 
-                # 🌟 VERSÃO MAPA CLARO: Renderização do ponto de consulta individual no modo claro
-                view_state = pdk.ViewState(latitude=float(coords[0]), longitude=float(coords[1]), zoom=11, pitch=0)
+                # Renderização do ponto de consulta individual no modo claro Pydeck
+                view_state = pdk.ViewState(latitude=float(coords), longitude=float(coords), zoom=11, pitch=0)
                 layer = pdk.Layer(
                     "ScatterplotLayer",
-                    data=pd.DataFrame([{"lat": float(coords[0]), "lon": float(coords[1])}]),
+                    data=pd.DataFrame([{"lat": float(coords), "lon": float(coords)}]),
                     get_position="[lon, lat]",
-                    get_color="[46, 125, 50, 160]",  # Verde translúcido
+                    get_color="",  # Verde translúcido
                     get_radius=800,
                 )
                 st.pydeck_chart(pdk.Deck(layers=[layer], initial_view_state=view_state, map_style="mapbox://styles/mapbox/light-v10"))
             else:
+                # 🌟 RECUO CORRIGIDO (Linha 335): Exatamente 16 espaços de margem esquerda para sanar a quebra 🌟
                 st.caption("ℹ️ Mapa em nível de rua indisponível para este município.")
+
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
