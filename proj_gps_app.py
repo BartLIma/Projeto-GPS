@@ -2,6 +2,7 @@ import pandas as pd
 import streamlit as st
 import requests
 import os
+import datetime
 
 st.set_page_config(layout="wide")
 
@@ -28,17 +29,23 @@ if "acesso_liberado" not in st.session_state:
 if "indice_persona_consultada" not in st.session_state:
     st.session_state["indice_persona_consultada"] = None
 
-# --- 🌟 TABELA INTERNA DE COORDENADAS MESTRE NACIONAL EXPANDIDA (FALBAK SEGURANÇA) 🌟 ---
-# Incluído Brasília, Belo Horizonte e capitais polo para contingência absoluta
+# --- TABELA INTERNA DE COORDENADAS MESTRE NACIONAL BLINDADA ---
 coordenadas_cidades = {
     "vitoria": [-20.3155, -40.3128], "joao pessoa": [-7.1198, -34.8450],
     "campina grande": [-7.2247, -35.8772], "santa rita": [-7.1139, -34.9736],
     "patos": [-7.0269, -37.2797], "guarabira": [-6.8547, -35.4914],
     "cabedelo": [-6.9811, -34.8339], "vila velha": [-20.3297, -40.2925],
     "serra": [-20.1287, -40.3078], "cariacica": [-20.2639, -40.4201],
-    "manaus": [-3.1190, -60.0217], "belo horizonte": [-19.9173, -43.9345],
-    "brasilia": [-15.7942, -47.8822], "sao paulo": [-23.5505, -46.6333],
-    "rio de janeiro": [-22.9068, -43.1729]
+    "recife": [-8.0578, -34.8829], "salvador": [-12.9714, -38.5014],
+    "maceio": [-9.6658, -35.7350], "aracaju": [-10.9111, -37.0717],
+    "natal": [-5.7950, -35.2094], "fortaleza": [-3.7319, -38.5267],
+    "teresina": [-5.0928, -42.8038], "sao luis": [-2.5307, -44.3068],
+    "belo horizonte": [-19.9173, -43.9345], "brasilia": [-15.7942, -47.8822], 
+    "sao paulo": [-23.5505, -46.6333], "rio de janeiro": [-22.9068, -43.1729],
+    "manaus": [-3.1190, -60.0217], "curitiba": [-25.4284, -49.2733],
+    "florianopolis": [-27.5954, -48.5480], "porto alegre": [-30.0346, -51.2177],
+    "goiania": [-16.6869, -49.2648], "cuiaba": [-15.6010, -56.0949],
+    "campo grande": [-20.4697, -54.6201], "belem": [-1.4558, -48.4902]
 }
 
 coordenadas_estados = {
@@ -46,7 +53,10 @@ coordenadas_estados = {
     "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
     "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729],
     "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000],
-    "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822]
+    "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822], "al": [-9.5713, -36.7820],
+    "se": [-10.5740, -37.3857], "pi": [-7.7183, -42.7289], "ma": [-4.9609, -45.2744],
+    "go": [-15.8270, -49.8362], "mt": [-12.6819, -56.9211], "ms": [-20.7722, -54.7852],
+    "pa": [-5.5368, -52.2955]
 }
 
 tradutor_uf = {
@@ -55,10 +65,12 @@ tradutor_uf = {
     "rio grande do norte": "rn", "rn": "rn", "ceara": "ce", "ce": "ce",
     "bahia": "ba", "ba": "ba", "sao paulo": "sp", "sp": "sp", "rio de janeiro": "rj", "rj": "rj",
     "parana": "pr", "pr": "pr", "santa catarina": "sc", "sc": "sc", "rio grande do sul": "rs", "rs": "rs",
-    "amazonas": "am", "am": "am", "distrito federal": "df", "df": "df"
+    "amazonas": "am", "am": "am", "distrito federal": "df", "df": "df", "alagoas": "al", "al": "al",
+    "sergipe": "se", "se": "se", "piaui": "pi", "pi": "pi", "maranhao": "ma", "ma": "ma",
+    "goias": "go", "go": "go", "mato grosso": "mt", "mt": "mt", "mato grosso do sul": "ms", "ms": "ms",
+    "para": "pa", "pa": "pa"
 }
 
-# 🌟 CORREÇÃO CRÍTICA DO CABEÇALHO: Uso de e-mail real e válido para cumprir a política oficial do OpenStreetMap 🌟
 headers_viacep = {
     "User-Agent": "Projeto-GPS-Bartolomeu/1.0 (bartolomeulima.corecon@gmail.com)",
     "Accept": "application/json"
@@ -75,7 +87,6 @@ if not st.session_state["acesso_liberado"]:
                 st.session_state["acesso_liberado"] = True
                 st.rerun()
             else: st.error("Senha incorreta! Tente novamente.")
-
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
@@ -162,7 +173,6 @@ if st.session_state["acesso_liberado"]:
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
-            # 🌟 CORREÇÃO CRÍTICA DA LINHA 164: Isolamento de índices explícitos [0] e [1] em float puro para aniquilar o erro 🌟
             muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
@@ -173,7 +183,7 @@ if st.session_state["acesso_liberado"]:
                 }])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
-                st.caption("ℹ️ Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
+                st.caption("ℹ️ Mapa em nível de rua indisponível para este município.")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -275,14 +285,13 @@ if st.session_state["acesso_liberado"]:
                 elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
                 else:
                     st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no Excel.")
-                    import datetime
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
     # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
-        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e calcular a densidade local.")
+        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão.")
         
         if not df.empty and "Município" in df.columns:
             df_filtrado_cidades = df[df["Município"].str.strip() != ""]
@@ -303,9 +312,14 @@ if st.session_state["acesso_liberado"]:
                         break
                         
                 latitude_descoberta, longitude_descoberta = None, None
+                cidade_busca_chave = cidade_selecionada.lower().strip()
                 
-                # 1. Tenta a localização primária via API rápida do CEP
-                if cep_referencia:
+                if cidade_busca_chave in coordenadas_cidades:
+                    coords_contingencia = coordenadas_cidades[cidade_busca_chave]
+                    latitude_descoberta = float(coords_contingencia[0])
+                    longitude_descoberta = float(coords_contingencia[1])
+                
+                if latitude_descoberta is None and cep_referencia:
                     try:
                         url_geo = f"https://thepro.com.br{cep_referencia}"
                         req_geo = requests.get(url_geo, headers=headers_viacep, timeout=4).json()
@@ -314,14 +328,6 @@ if st.session_state["acesso_liberado"]:
                             longitude_descoberta = float(req_geo["lng"])
                     except: pass
                 
-                # 2. Tenta a localização de contingência via Tabela de Capitais Interna
-                cidade_busca_chave = cidade_selecionada.lower().strip()
-                if latitude_descoberta is None and cidade_busca_chave in coordenadas_cidades:
-                    coords_contingencia = coordenadas_cidades[cidade_busca_chave]
-                    latitude_descoberta = float(coords_contingencia[0])
-                    longitude_descoberta = float(coords_contingencia[1])
-                
-                # 3. Tenta a localização via OpenStreetMap (Assinado com e-mail válido para destravar)
                 if latitude_descoberta is None:
                     try:
                         url_osm = f"https://openstreetmap.org{cidade_selecionada},+Brazil"
@@ -340,7 +346,7 @@ if st.session_state["acesso_liberado"]:
                     }])
                     st.map(df_ponto_mapa, size="size", color="#0056b3")
                 else:
-                    st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas automáticas para {cidade_selecionada}. Verifique a internet ou use o mapa macro por estado.")
+                    st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas para {cidade_selecionada}.")
             else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
@@ -363,7 +369,6 @@ if st.session_state["acesso_liberado"]:
             
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
-                # Isolamento estrito de eixos para o mapa estante macro
                 lista_mapa_estado.append({
                     "latitude": float(coords[0]), 
                     "longitude": float(coords[1]), 
