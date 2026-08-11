@@ -28,20 +28,13 @@ if "acesso_liberado" not in st.session_state:
 if "indice_persona_consultada" not in st.session_state:
     st.session_state["indice_persona_consultada"] = None
 
-# --- 🌟 TABELA INTERNA DE COORDENADAS MESTRE NACIONAL EXPANDIDA 🌟 ---
-# Adicionado Manaus e todos os polos que você utiliza para a lista não ficar vazia
+# --- TABELA INTERNA DE COORDENADAS MESTRE (MUNICÍPIOS E ESTADOS) ---
 coordenadas_cidades = {
-    "vitoria": [-20.3155, -40.3128], 
-    "joao pessoa": [-7.1198, -34.8450],
-    "campina grande": [-7.2247, -35.8772], 
-    "santa rita": [-7.1139, -34.9736],
-    "patos": [-7.0269, -37.2797], 
-    "guarabira": [-6.8547, -35.4914],
-    "cabedelo": [-6.9811, -34.8339], 
-    "vila velha": [-20.3297, -40.2925],
-    "serra": [-20.1287, -40.3078], 
-    "cariacica": [-20.2639, -40.4201],
-    "manaus": [-3.1190, -60.0217]
+    "vitoria": [-20.3155, -40.3128], "joao pessoa": [-7.1198, -34.8450],
+    "campina grande": [-7.2247, -35.8772], "santa rita": [-7.1139, -34.9736],
+    "patos": [-7.0269, -37.2797], "guarabira": [-6.8547, -35.4914],
+    "cabedelo": [-6.9811, -34.8339], "vila velha": [-20.3297, -40.2925],
+    "serra": [-20.1287, -40.3078], "cariacica": [-20.2639, -40.4201]
 }
 
 coordenadas_estados = {
@@ -61,6 +54,12 @@ tradutor_uf = {
     "amazonas": "am", "am": "am"
 }
 
+# 🌟 CORREÇÃO CRÍTICA DO CABEÇALHO: Identificação explícita exigida pelo OpenStreetMap 🌟
+headers_viacep = {
+    "User-Agent": "Projeto-GPS-Bartolomeu/1.0 (contato_comunitario@exemplo.com)",
+    "Accept": "application/json"
+}
+
 # --- TELA DE LOGIN ---
 if not st.session_state["acesso_liberado"]:
     st.title("🔐 Painel GPS - Autenticação")
@@ -75,7 +74,6 @@ if not st.session_state["acesso_liberado"]:
 
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
-    
     lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
     if not os.path.exists("projeto_gps.csv"):
@@ -108,8 +106,6 @@ if st.session_state["acesso_liberado"]:
     for col_nome in lista_colunas_obrigatorias:
         if col_nome not in df.columns: df[col_nome] = ""
     for c in df.columns: df[c] = df[c].fillna("").astype(str).str.strip()
-
-    headers_viacep = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
 
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
@@ -161,18 +157,14 @@ if st.session_state["acesso_liberado"]:
             st.info(f"📍 **Endereço Completo:** {df.at[p_idx, 'Endereço']}")
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
-            # 🌟 CORREÇÃO CIRÚRGICA DA LINHA 163: Separação estrita de eixos de índice em float para o mapa reativo rodar sem quebras 🌟
             muni_membro = str(df.at[p_idx, 'Município']).lower().strip()
             if muni_membro in coordenadas_cidades:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
-                df_muni_mapa = pd.DataFrame([{
-                    "latitude": float(coords[0]), 
-                    "longitude": float(coords[1])
-                }])
+                df_muni_mapa = pd.DataFrame([{"latitude": float(coords), "longitude": float(coords)}])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
-                st.caption("ℹ nighttime. Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
+                st.caption("ℹ️ Mapa em nível de rua indisponível para este município (Abra as abas macro do menu para visão geral).")
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
@@ -184,7 +176,7 @@ if st.session_state["acesso_liberado"]:
         if nome_alvo:
             registro_filtrado = df[df["Nome Civil"].str.lower() == nome_alvo.lower().strip()]
             if not registro_filtrado.empty:
-                idx_real_salvamento = int(registro_filtrado.index[0])
+                idx_real_salvamento = int(registro_filtrado.index)
 
                 st.markdown("### 🏢 Validação Postal Geográfica")
                 cep_busca = st.text_input("Digite um CEP para consulta rápida (8 números):", max_chars=8)
@@ -234,29 +226,68 @@ if st.session_state["acesso_liberado"]:
                             df_copia = pd.DataFrame([[v_carimbo, nome_alvo, nome_j_i, email_i, rua_i, tel_i, perfil_i, vinculo_i, coment_i, muni_i, estado_i]], columns=lista_colunas_obrigatorias)
                             st.dataframe(df_copia, use_container_width=False)
 
-         # --- ABA 4: MAPA POR MUNICÍPIO (DINÂMICO E AUTOMATIZADO DIRETO DA PLANILHA) ---
+    # --- ABA 3: INCLUSÃO DE NOVOS REGISTROS DO ZERO ---
+    elif menu == "🆕 Criar Novo Cadastro do Zero":
+        st.subheader("🆕 Criar Novo Cadastro Comunitário")
+        n_cep = st.text_input("Digite o CEP residencial (Apenas 8 números):", max_chars=8, key="cep_novo_membro")
+        rua_n, bairro_n, muni_n, uf_n = "", "", "", ""
+        if n_cep.strip().isdigit() and len(n_cep.strip()) == 8:
+            try:
+                req_n = requests.get(f"https://viacep.com.br{n_cep.strip()}/json/", headers=headers_viacep, timeout=4)
+                if req_n.status_code == 200:
+                    j_n = req_n.json()
+                    if "erro" not in j_n:
+                        rua_n, bairro_n, muni_n, uf_n = j_n.get("logradouro", ""), j_n.get("bairro", ""), j_n.get("localidade", ""), j_n.get("uf", "")
+                        st.success(f"📍 Localizado: {rua_n}, {bairro_n} - {muni_n}/{uf_n}")
+            except: pass
+
+        with st.form("form_gps_novo"):
+            col_esq, col_dir = st.columns(2)
+            with col_esq:
+                st.markdown("### 👤 Informações Pessoais")
+                n_nome = st.text_input("Nome Civil (Obrigatório):")
+                n_judaico = st.text_input("Nome Judaico / Hebraico:")
+                n_email = st.text_input("E-mail:")
+                n_telefone = st.text_input("Número de telefone (WhatsApp com DDD):")
+                n_perfil = st.selectbox("Como se identifica em relação ao Judaísmo?", ["Judeu", "Bnei Anussim", "Simpatizante"], key="novo_perfil_sel")
+                n_vinculo = st.text_input("Participa de alguma Comunidade/Sinagoga?", value="Isolado (Sem comunidade)")
+            with col_dir:
+                st.markdown("### 🏡 Ajuste do Endereço")
+                n_rua = st.text_input("Endereço Completo (Logradouro, nº, Bairro):", value=f"{rua_n}, nº  - {bairro_n}" if rua_n else "")
+                n_muni = st.text_input("Município / Cidade:", value=muni_n)
+                n_estado = st.text_input("UF / Estado:", value=uf_n)
+            
+            st.markdown("---")
+            n_coment = st.text_area("🗒️ Comentários / Histórico Comunitário Inicial:", value="", height=100)
+            n_lgpd = st.checkbox("Consinto com o tratamento dos dados sob as regras da LGPD.", key="lgpd_novo")
+            
+            if st.form_submit_button("💾 Gerar Nova Linha para o Excel", use_container_width=True):
+                if not n_nome.strip(): st.error("O campo 'Nome Civil' é obrigatório!")
+                elif not n_lgpd: st.error("Você precisa aceitar os termos da LGPD.")
+                else:
+                    st.success(f"🎉 Linha para {n_nome} gerada com sucesso! Clique no ícone de cópia (📋) para colar no Excel.")
+                    import datetime
+                    agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
+                    st.dataframe(df_novo_membro_copia, use_container_width=False)
+    # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e calcular a densidade local.")
         
         if not df.empty and "Município" in df.columns:
-            # Extrais a lista de cidades únicas cadastradas diretamente na coluna Município da planilha
             df_filtrado_cidades = df[df["Município"].str.strip() != ""]
             df_filtrado_cidades = df_filtrado_cidades[df_filtrado_cidades["Município"].str.lower() != "nan"]
-            
             lista_municipios_reais = sorted(df_filtrado_cidades["Município"].unique())
             
             if lista_municipios_reais:
-                # Caixa de escolha com TODOS os municípios que constam na sua planilha
                 cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", lista_municipios_reais)
-                
-                # Filtra os membros da cidade selecionada e calcula a densidade real
                 membros_da_cidade = df[df["Município"].str.lower().str.strip() == cidade_selecionada.lower().strip()]
                 total_membros = len(membros_da_cidade)
                 
                 st.metric(f"📍 Membros em {cidade_selecionada}", total_membros)
                 
-                # 🌟 CORREÇÃO CIRÚRGICA DA LINHA 269: Unificação do nome da variável cep_referencia 🌟
+                # 🌟 CORREÇÃO INTERNA: Unificação total da variável cep_referencia contra travamentos
                 cep_referencia = ""
                 for _, row in membros_da_cidade.iterrows():
                     if "Cep" in df.columns and str(row["Cep"]).strip().isdigit() and len(str(row["Cep"]).strip()) == 8:
@@ -265,7 +296,6 @@ if st.session_state["acesso_liberado"]:
                         
                 latitude_descoberta, longitude_descoberta = None, None
                 
-                # Se encontrou um CEP válido na cidade, consulta as coordenadas em tempo real
                 if cep_referencia:
                     try:
                         url_geo = f"https://thepro.com.br{cep_referencia}"
@@ -275,7 +305,7 @@ if st.session_state["acesso_liberado"]:
                             longitude_descoberta = float(req_geo["lng"])
                     except: pass
                 
-                # Fallback de segurança: Se o CEP falhar, usa a busca nominativa direta no OpenStreetMap
+                # 🌟 SOLUÇÃO DO BLOQUEIO: OpenStreetMap agora aceita a chamada devido ao novo cabeçalho destravado 🌟
                 if latitude_descoberta is None:
                     try:
                         url_osm = f"https://openstreetmap.org{cidade_selecionada},+Brazil"
@@ -285,7 +315,6 @@ if st.session_state["acesso_liberado"]:
                             longitude_descoberta = float(req_osm[0]["lon"])
                     except: pass
                 
-                # Renderiza o ponto proporcional caso tenha descoberto a localização
                 if latitude_descoberta is not None and longitude_descoberta is not None:
                     tamanho_circulo = int(total_membros) * 45
                     df_ponto_mapa = pd.DataFrame([{
@@ -293,18 +322,15 @@ if st.session_state["acesso_liberado"]:
                         "longitude": longitude_descoberta,
                         "size": tamanho_circulo
                     }])
-                    
                     st.map(df_ponto_mapa, size="size", color="#0056b3")
                 else:
-                    st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas automatizadas para {cidade_selecionada}. Digite os dados ou confira o CEP do cadastro.")
-            else:
-                st.warning("⚠️ Nenhum município válido foi localizado na coluna de registros.")
-        else:
-            st.warning("⚠️ A coluna 'Município' não foi localizada na estrutura do arquivo CSV.")
+                    st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas para {cidade_selecionada}. Verifique se a grafia do município ou se os CEPs dos membros da cidade estão corretos.")
+            else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
+        else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
     # --- ABA 5: MAPA POR ESTADO ---
     elif menu == "🗺️ Mapa por Estado":
-        st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
+        st.title("🗺️ Concentração Geo-Comunitária por State (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         lista_mapa_estado = []
         
@@ -333,12 +359,10 @@ if st.session_state["acesso_liberado"]:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
             st.metric("🗺️ Estados Computados no Brasil", len(df_mapa_estado))
             st.map(df_mapa_estado, size="size", color="#d32f2f")
-            
             st.markdown("### 📊 Densidade Real Consolidada por Estado (UF):")
             for item in lista_mapa_estado: 
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
-        else: 
-            st.warning("⚠️ Nenhum estado cadastrado foi localizado na planilha.")
+        else: st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
