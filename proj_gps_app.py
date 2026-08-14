@@ -92,19 +92,39 @@ if not st.session_state["acesso_liberado"]:
 # --- APLICATIVO PRINCIPAL LIBERADO ---
 if st.session_state["acesso_liberado"]:
     
-    lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
+    lista_colunas_obrigatorias = [
+        "Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", 
+        "Endereço", "Número de telefone", "Perfil de Identidade", 
+        "Vinculação Comunitária", "Comentários", "Município", "UF"
+    ]
     
+    # Garante a existência do arquivo com cabeçalho correto se não existir
     if not os.path.exists("projeto_gps.csv"):
         df_vazio = pd.DataFrame(columns=lista_colunas_obrigatorias)
         df_vazio.to_csv("projeto_gps.csv", sep=",", index=False, encoding="utf-8-sig")
 
-    try:
-        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
-    except Exception:
-        df = pd.read_csv("projeto_gps.csv", sep=",", encoding="cp1252", dtype=str, skip_blank_lines=True)
-        
-    df = df.dropna(how="all")
+    # Inicializa df como um DataFrame vazio preventivamente
+    df = pd.DataFrame(columns=lista_colunas_obrigatorias)
 
+    # Tenta ler o arquivo tratando codificações diferentes
+    try:
+        df_lido = pd.read_csv("projeto_gps.csv", sep=",", encoding="utf-8-sig", dtype=str, skip_blank_lines=True)
+        if isinstance(df_lido, pd.DataFrame):
+            df = df_lido
+    except Exception:
+        try:
+            df_lido = pd.read_csv("projeto_gps.csv", sep=",", encoding="cp1252", dtype=str, skip_blank_lines=True)
+            if isinstance(df_lido, pd.DataFrame):
+                df = df_lido
+        except Exception as e:
+            st.error(f"Erro crítico ao ler o banco de dados: {e}")
+
+    # Remove linhas totalmente nulas e garante que df continua sendo DataFrame
+    df = df.dropna(how="all")
+    if not isinstance(df, pd.DataFrame):
+        df = pd.DataFrame(columns=lista_colunas_obrigatorias)
+
+    # Mapeamento e normalização inteligente de colunas
     mapeamento_colunas = {}
     for col in df.columns:
         col_limpa = col.strip().lower().replace("-", "").replace(" ", "").replace("_", "").replace("/", "").replace("í", "i").replace("ê", "e").replace("á", "a").replace("ó", "o").replace("ã", "a")
@@ -121,14 +141,20 @@ if st.session_state["acesso_liberado"]:
         elif "comentar" in col_limpa: mapeamento_colunas[col] = "Comentários"
 
     df = df.rename(columns=mapeamento_colunas)
+    
+    # Assegura que todas as colunas obrigatórias existam no DataFrame
     for col_nome in lista_colunas_obrigatorias:
-        if col_nome not in df.columns: df[col_nome] = ""
-    for c in df.columns: df[c] = df[c].fillna("").astype(str).str.strip()
+        if col_nome not in df.columns: 
+            df[col_nome] = ""
+            
+    # Executa a limpeza preventiva de strings (A antiga linha 126 agora está blindada)
+    for c in df.columns: 
+        df[c] = df[c].fillna("").astype(str).str.strip()
 
+    # --- BARRA LATERAL ---
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
     st.sidebar.markdown("---")
-
     # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
