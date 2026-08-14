@@ -379,9 +379,9 @@ if st.session_state["acesso_liberado"]:
         
         if len(lista_mapa_estado) > 0:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
-            st.metric("🗺️ Estados Computados no Brasil", len(df_mapa_estado))
+            st.metric("🗺️ Estados Computados no Brasil + Portugal", len(df_mapa_estado))
             st.map(df_mapa_estado, size="size", color="#d32f2f")
-            st.markdown("### 📊 Densidade Real Consolidada por Estado (UF):")
+            st.markdown("### 📊 Densidade Real Consolidada por Estado (UF) + Portugal:")
             for item in lista_mapa_estado: 
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
         else: st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
