@@ -56,7 +56,8 @@ coordenadas_estados = {
     "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822], "al": [-9.5713, -36.7820],
     "se": [-10.5740, -37.3857], "pi": [-7.7183, -42.7289], "ma": [-4.9609, -45.2744],
     "go": [-15.8270, -49.8362], "mt": [-12.6819, -56.9211], "ms": [-20.7722, -54.7852],
-    "pa": [-5.5368, -52.2955], "pt": [38.7223, -9.1393]
+    "pa": [-5.5368, -52.2955], "pt": [38.7223, -9.1393], "ro": [-10.8300, -62.8200],
+    "rr": [-1.9900, -61.3300], "ap": [1.4100, -51.7700], "ac": [-9.0200, -70.8100]
 }
 
 tradutor_uf = {
@@ -68,7 +69,8 @@ tradutor_uf = {
     "amazonas": "am", "am": "am", "distrito federal": "df", "df": "df", "alagoas": "al", "al": "al",
     "sergipe": "se", "se": "se", "piaui": "pi", "pi": "pi", "maranhao": "ma", "ma": "ma",
     "goias": "go", "go": "go", "mato grosso": "mt", "mt": "mt", "mato grosso do sul": "ms", "ms": "ms",
-    "para": "pa", "pa": "pa", "portugal":"pt"
+    "para": "pa", "pa": "pa", "portugal":"pt","rondonia": "ro", "ro": "ro","roraima": "rr", "rr": "rr",
+    "acre": "ac", "ac": "ac"
 }
 
 headers_viacep = {
