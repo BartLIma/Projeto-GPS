@@ -375,7 +375,7 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-    # --- ABA 4: MAPA POR MUNICÍPIO ---
+     # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão.")
@@ -401,10 +401,11 @@ if st.session_state["acesso_liberado"]:
                 latitude_descoberta, longitude_descoberta = None, None
                 cidade_busca_chave = cidade_selecionada.lower().strip()
                 
+                # Ajuste técnico: Puxando as chaves dinâmicas corretas do dicionário ('lat' e 'lon')
                 if cidade_busca_chave in coordenadas_cidades:
                     coords_contingencia = coordenadas_cidades[cidade_busca_chave]
-                    latitude_descoberta = float(coords_contingencia[0])
-                    longitude_descoberta = float(coords_contingencia[1])
+                    latitude_descoberta = float(coords_contingencia["lat"])
+                    longitude_descoberta = float(coords_contingencia["lon"])
                 
                 if latitude_descoberta is None and cep_referencia:
                     try:
@@ -438,10 +439,6 @@ if st.session_state["acesso_liberado"]:
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
     # --- ABA 5: MAPA POR ESTADO ---
-# Ajuste de segurança na linha 450 para conversar com o dicionário de estados
-uf_bruta_limpa = str(uf_bruta).strip().lower() if uf_bruta else ""
-uf_oficial = tradutor_uf.get(uf_bruta_limpa, uf_bruta_limpa)
-    
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
@@ -450,11 +447,12 @@ uf_oficial = tradutor_uf.get(uf_bruta_limpa, uf_bruta_limpa)
         if not df.empty and "UF" in df.columns:
             somas_estados = {}
             for _, row in df.iterrows():
-                uf_bruta = str(row["UF"]).strip().lower().replace("í", "i").replace("ã", "a")
-                if not uf_bruta or uf_bruta == "nan":
+                uf_crua = str(row["UF"]).strip().lower().replace("í", "i").replace("ã", "a") if row["UF"] else ""
+                if not uf_crua or uf_crua == "nan":
                     continue
                 
-                uf_oficial = tradutor_uf.get(uf_bruta, uf_bruta)
+                # Ajuste de segurança: Rodando o tradutor no lugar correto do laço de dados
+                uf_oficial = tradutor_uf.get(uf_crua, uf_crua)
                 if uf_oficial in coordenadas_estados:
                     somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
             
@@ -476,6 +474,7 @@ uf_oficial = tradutor_uf.get(uf_bruta_limpa, uf_bruta_limpa)
             for item in lista_mapa_estado: 
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
         else: st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
+
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
