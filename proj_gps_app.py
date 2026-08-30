@@ -38,7 +38,7 @@ if "indice_persona_consultada" not in st.session_state:
 
 # --- TABELA INTERNA DE COORDENADAS MESTRE NACIONAL BLINDADA ---
 
- import streamlit as st
+import streamlit as st
 
 # 1. Coordenadas geográficas de GPS (Latitude e Longitude) das Cidades
 # Dica: Cadastre as chaves sempre em letras MINÚSCULAS e sem siglas para facilitar a busca
