@@ -132,14 +132,17 @@ coordenadas_cidades = {
 }
 
 # Dicionário de conversão e padronização de estados (UFs)
-tradutor_uf = {
-    "AC": "ac", "AL": "al", "AP": "ap", "AM": "am", "BA": "ba", "CE": "ce",
-    "DF": "df", "ES": "es", "GO": "go", "MA": "ma", "MT": "mt", "MS": "ms",
-    "MG": "mg", "PA": "pa", "PB": "pb", "PR": "pr", "PE": "pe", "PI": "pi",
-    "RJ": "rj", "RN": "rn", "RS": "rs", "RO": "ro", "RR": "rr", "SC": "sc",
-    "SP": "sp", "SE": "se", "TO": "to",
-    "pb": "pb", "mg": "mg", "sp": "sp", "rj": "rj", "pe": "pe", "ce": "ce"
+# COPIE E SUBSTITUA ESTE BLOCO NO TOPO DO SEU ARQUIVO
+coordenadas_estados = {
+    "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
+    "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
+    "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729],
+    "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000],
+    "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822], "al": [-9.5713, -36.7820],
+    "se": [-10.5740, -37.3857], "pi": [-7.7183, -42.7289], "ma": [-4.9609, -45.2744],
+    "go": [-15.8270, -49.8362]
 }
+
 
 
 # 3. Função de busca Tolerante a Falhas de Digitação
@@ -435,6 +438,10 @@ if st.session_state["acesso_liberado"]:
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
     # --- ABA 5: MAPA POR ESTADO ---
+# Ajuste de segurança na linha 450 para conversar com o dicionário de estados
+uf_bruta_limpa = str(uf_bruta).strip().lower() if uf_bruta else ""
+uf_oficial = tradutor_uf.get(uf_bruta_limpa, uf_bruta_limpa)
+    
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
