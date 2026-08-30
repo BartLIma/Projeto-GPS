@@ -459,17 +459,22 @@ if st.session_state["acesso_liberado"]:
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         lista_mapa_estado = []
         
-        # Criação local e segura do dicionário para evitar NameError na linha 455
-tradutor_uf_local = {
-    "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
-    "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
-    "mg": "mg", "pa": "pa", "pb": "pb", "pr": "pr", "pe": "pe", "pi": "pi",
-    "rj": "rj", "rn": "rn", "rs": "rs", "ro": "ro", "rr": "rr", "sc": "sc",
-    "sp": "sp", "se": "se", "to": "to", 
-    "pt": "pt", "it": "it"  # Inclusão das siglas internacionais
-}
-
-
+       # --- ABA 5: MAPA POR ESTADO ---
+    elif menu == "🗺️ Mapa por Estado":
+        st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
+        st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
+        lista_mapa_estado = []
+        
+        # Dicionário atualizado com a imagem (incluindo PT e IT)
+        tradutor_uf_local = {
+            "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
+            "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
+            "mg": "mg", "pa": "pa", "pb": "pb", "pr": "pr", "pe": "pe", "pi": "pi",
+            "rj": "rj", "rn": "rn", "rs": "rs", "ro": "ro", "rr": "rr", "sc": "sc",
+            "sp": "sp", "se": "se", "to": "to", "pt": "pt", "it": "it"
+        }
+        
+        # Linha 473 corrigida: Alinhada perfeitamente na mesma margem do dicionário acima
         if not df.empty and "UF" in df.columns:
             somas_estados = {}
             for _, row in df.iterrows():
@@ -477,7 +482,6 @@ tradutor_uf_local = {
                 if not uf_crua or uf_crua == "nan":
                     continue
                 
-                # Linha 455 corrigida e alinhada com precisão de espaços (4 recuos dentro do for)
                 uf_oficial = tradutor_uf_local.get(uf_crua, uf_crua)
                 if uf_oficial in coordenadas_estados:
                     somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
@@ -494,9 +498,9 @@ tradutor_uf_local = {
         
         if len(lista_mapa_estado) > 0:
             df_mapa_estado = pd.DataFrame(lista_mapa_estado)
-            st.metric("🗺️ Estados Computados no Brasil + Portugal", len(df_mapa_estado))
+            st.metric("🗺️ Estados Computados no Brasil + Portugal + Itália", len(df_mapa_estado))
             st.map(df_mapa_estado, size="size", color="#d32f2f")
-            st.markdown("### 📊 Densidade Real Consolidada por Estado (UF) + Portugal:")
+            st.markdown("### 📊 Densidade Real Consolidada por Estado (UF) + Portugal + Itália:")
             for item in lista_mapa_estado: 
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
         else: st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
