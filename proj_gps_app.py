@@ -131,16 +131,16 @@ coordenadas_cidades = {
     "porto velho": {"lat": -8.7619, "lon": -63.9039}
 }
 
-# 2. Coordenadas dos Estados (Dicionário Fechado Corretamente)
-coordenadas_estados = {
-    "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
-    "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
-    "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729],
-    "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000],
-    "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822], "al": [-9.5713, -36.7820],
-    "se": [-10.5740, -37.3857], "pi": [-7.7183, -42.7289], "ma": [-4.9609, -45.2744],
-    "go": [-15.8270, -49.8362]
+# Dicionário de conversão e padronização de estados (UFs)
+tradutor_uf = {
+    "AC": "ac", "AL": "al", "AP": "ap", "AM": "am", "BA": "ba", "CE": "ce",
+    "DF": "df", "ES": "es", "GO": "go", "MA": "ma", "MT": "mt", "MS": "ms",
+    "MG": "mg", "PA": "pa", "PB": "pb", "PR": "pr", "PE": "pe", "PI": "pi",
+    "RJ": "rj", "RN": "rn", "RS": "rs", "RO": "ro", "RR": "rr", "SC": "sc",
+    "SP": "sp", "SE": "se", "TO": "to",
+    "pb": "pb", "mg": "mg", "sp": "sp", "rj": "rj", "pe": "pe", "ce": "ce"
 }
+
 
 # 3. Função de busca Tolerante a Falhas de Digitação
 def buscar_coordenadas(nome_entrada: str):
