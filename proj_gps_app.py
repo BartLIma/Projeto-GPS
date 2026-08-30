@@ -438,11 +438,20 @@ if st.session_state["acesso_liberado"]:
             else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
-    # --- ABA 5: MAPA POR ESTADO ---
+       # --- ABA 5: MAPA POR ESTADO ---
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         lista_mapa_estado = []
+        
+        # Criação local e segura do dicionário para evitar NameError na linha 455
+        tradutor_uf_local = {
+            "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
+            "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
+            "mg": "mg", "pa": "pa", "pb": "pb", "pr": "pr", "pe": "pe", "pi": "pi",
+            "rj": "rj", "rn": "rn", "rs": "rs", "ro": "ro", "rr": "rr", "sc": "sc",
+            "sp": "sp", "se": "se", "to": "to"
+        }
         
         if not df.empty and "UF" in df.columns:
             somas_estados = {}
@@ -451,8 +460,8 @@ if st.session_state["acesso_liberado"]:
                 if not uf_crua or uf_crua == "nan":
                     continue
                 
-                # Ajuste de segurança: Rodando o tradutor no lugar correto do laço de dados
-                uf_oficial = tradutor_uf.get(uf_crua, uf_crua)
+                # Linha 455 corrigida e alinhada com precisão de espaços (4 recuos dentro do for)
+                uf_oficial = tradutor_uf_local.get(uf_crua, uf_crua)
                 if uf_oficial in coordenadas_estados:
                     somas_estados[uf_oficial] = somas_estados.get(uf_oficial, 0) + 1
             
@@ -474,7 +483,6 @@ if st.session_state["acesso_liberado"]:
             for item in lista_mapa_estado: 
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
         else: st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
-
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
