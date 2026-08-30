@@ -390,10 +390,10 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-     # --- ABA 4: MAPA POR MUNICÍPIO ---
+        # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
-        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão.")
+        st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e listar os membros.")
         
         if not df.empty and "Município" in df.columns:
             df_filtrado_cidades = df[df["Município"].str.strip() != ""]
@@ -416,7 +416,6 @@ if st.session_state["acesso_liberado"]:
                 latitude_descoberta, longitude_descoberta = None, None
                 cidade_busca_chave = cidade_selecionada.lower().strip()
                 
-                # Ajuste técnico: Puxando as chaves dinâmicas corretas do dicionário ('lat' e 'lon')
                 if cidade_busca_chave in coordenadas_cidades:
                     coords_contingencia = coordenadas_cidades[cidade_busca_chave]
                     latitude_descoberta = float(coords_contingencia["lat"])
@@ -436,8 +435,8 @@ if st.session_state["acesso_liberado"]:
                         url_osm = f"https://openstreetmap.org{cidade_selecionada},+Brazil"
                         req_osm = requests.get(url_osm, headers=headers_viacep, timeout=4).json()
                         if req_osm:
-                            latitude_descoberta = float(req_osm[0]["lat"])
-                            longitude_descoberta = float(req_osm[0]["lon"])
+                            latitude_descoberta = float(req_osm["lat"])
+                            longitude_descoberta = float(req_osm["lon"])
                     except: pass
                 
                 if latitude_descoberta is not None and longitude_descoberta is not None:
@@ -448,6 +447,18 @@ if st.session_state["acesso_liberado"]:
                         "size": tamanho_circulo
                     }])
                     st.map(df_ponto_mapa, size="size", color="#0056b3")
+                    
+                    # 📊 NOVA SEÇÃO: Relação Nominal Detalhada das Pessoas Localizadas
+                    st.markdown("---")
+                    st.markdown(f"### 📋 Dados Completos dos Membros Localizados em **{cidade_selecionada}**")
+                    st.markdown("A tabela abaixo mostra todas as linhas e informações originais da sua planilha para esta localidade. Você pode ordenar clicando no cabeçalho das colunas.")
+                    
+                    # Exibe o dataframe filtrado com barra de rolagem e busca interna nativa
+                    st.dataframe(
+                        membros_da_cidade, 
+                        use_container_width=True, 
+                        hide_index=True
+                    )
                 else:
                     st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas para {cidade_selecionada}.")
             else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
