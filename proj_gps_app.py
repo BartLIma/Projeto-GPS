@@ -453,19 +453,13 @@ if st.session_state["acesso_liberado"]:
             else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
-       # --- ABA 5: MAPA POR ESTADO ---
+          # --- ABA 5: MAPA POR ESTADO ---
     elif menu == "🗺️ Mapa por Estado":
         st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
         st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
         lista_mapa_estado = []
         
-       # --- ABA 5: MAPA POR ESTADO ---
-    elif menu == "🗺️ Mapa por Estado":
-        st.title("🗺️ Concentração Geo-Comunitária por Estado (UF)")
-        st.markdown("Visualização macro mostrando o volume de membros por Estado do Brasil.")
-        lista_mapa_estado = []
-        
-        # Dicionário atualizado com a imagem (incluindo PT e IT)
+        # Dicionário de tradução local
         tradutor_uf_local = {
             "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
             "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
@@ -474,7 +468,6 @@ if st.session_state["acesso_liberado"]:
             "sp": "sp", "se": "se", "to": "to", "pt": "pt", "it": "it"
         }
         
-        # Linha 473 corrigida: Alinhada perfeitamente na mesma margem do dicionário acima
         if not df.empty and "UF" in df.columns:
             somas_estados = {}
             for _, row in df.iterrows():
@@ -488,6 +481,7 @@ if st.session_state["acesso_liberado"]:
             
             for uf_chave, total in somas_estados.items():
                 coords = coordenadas_estados[uf_chave]
+                # CORREÇÃO CRUCIAL: Acessando o índice [0] para lat e [1] para lon
                 lista_mapa_estado.append({
                     "latitude": float(coords[0]), 
                     "longitude": float(coords[1]), 
@@ -503,7 +497,8 @@ if st.session_state["acesso_liberado"]:
             st.markdown("### 📊 Densidade Real Consolidada por Estado (UF) + Portugal + Itália:")
             for item in lista_mapa_estado: 
                 st.write(f"• **{item['uf_sigla']}:** {item['quantidade']} membro(s) localizado(s).")
-        else: st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
+        else:
+            st.warning("⚠️ Nenhum estado cadastrado foi localizado.")
 
 # --- RODAPÉ DISCRETO PADRONIZADO ---
 st.markdown("---")
