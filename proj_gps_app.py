@@ -460,15 +460,15 @@ if st.session_state["acesso_liberado"]:
         lista_mapa_estado = []
         
         # Criação local e segura do dicionário para evitar NameError na linha 455
-     # Inclusão das siglas internacionais
-      tradutor_uf_local = {
+tradutor_uf_local = {
     "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
     "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
     "mg": "mg", "pa": "pa", "pb": "pb", "pr": "pr", "pe": "pe", "pi": "pi",
     "rj": "rj", "rn": "rn", "rs": "rs", "ro": "ro", "rr": "rr", "sc": "sc",
     "sp": "sp", "se": "se", "to": "to", 
-    "pt": "pt", "it": "it"
-      }
+    "pt": "pt", "it": "it"  # Inclusão das siglas internacionais
+}
+
 
         if not df.empty and "UF" in df.columns:
             somas_estados = {}
