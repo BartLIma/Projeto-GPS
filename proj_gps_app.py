@@ -132,18 +132,33 @@ coordenadas_cidades = {
 }
 
 # Dicionário de conversão e padronização de estados (UFs)
-# COPIE E SUBSTITUA ESTE BLOCO NO TOPO DO SEU ARQUIVO
+# Coordenadas geográficas centrais para os estados da lista (formato minúsculo)
 coordenadas_estados = {
-    "pb": [-7.1198, -36.5000], "es": [-19.7500, -40.5000], "mg": [-18.5122, -44.5550],
-    "pe": [-8.2833, -35.0730], "rn": [-5.7950, -36.5000], "ce": [-5.0000, -39.5000], 
-    "ba": [-12.5000, -41.5000], "sp": [-23.5500, -46.6333], "rj": [-22.9068, -43.1729],
-    "pr": [-24.5000, -51.5000], "sc": [-27.2500, -50.5000], "rs": [-30.0000, -53.5000],
-    "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822], "al": [-9.5713, -36.7820],
-    "se": [-10.5740, -37.3857], "pi": [-7.7183, -42.7289], "ma": [-4.9609, -45.2744],
-    "go": [-15.8270, -49.8362]
+    "pb": [-7.1198, -36.5000],  # Paraíba
+    "pt": [39.3999, -8.2245],   # Portugal (PT)
+    "rs": [-30.0000, -53.5000], # Rio Grande do Sul
+    "pr": [-24.5000, -51.5000], # Paraná
+    "pe": [-8.2833, -35.0730],  # Pernambuco
+    "sp": [-23.5500, -46.6333], # São Paulo
+    "sc": [-27.2500, -50.5000], # Santa Catarina
+    "am": [-3.1190, -60.0217],  # Amazonas
+    "df": [-15.7942, -47.8822], # Distrito Federal
+    "mg": [-18.5122, -44.5550], # Minas Gerais
+    "ba": [-12.5000, -41.5000], # Bahia
+    "rj": [-22.9068, -43.1729], # Rio de Janeiro
+    "ce": [-5.0000, -39.5000],  # Ceará
+    "go": [-15.8270, -49.8362], # Goiás
+    "rn": [-5.7950, -36.5000],  # Rio Grande do Norte
+    "pi": [-7.7183, -42.7289],  # Piauí
+    "al": [-9.5713, -36.7820],  # Alagoas
+    "pa": [-5.5300, -52.2900],  # Pará
+    "es": [-19.7500, -40.5000], # Espírito Santo
+    "ma": [-4.9609, -45.2744],  # Maranhão
+    "to": [-10.1838, -48.3336], # Tocantins
+    "se": [-10.5740, -37.3857], # Sergipe
+    "ro": [-11.5000, -63.0000], # Rondônia
+    "it": [41.8719, 12.5674]    # Itália (IT)
 }
-
-
 
 # 3. Função de busca Tolerante a Falhas de Digitação
 def buscar_coordenadas(nome_entrada: str):
@@ -445,14 +460,16 @@ if st.session_state["acesso_liberado"]:
         lista_mapa_estado = []
         
         # Criação local e segura do dicionário para evitar NameError na linha 455
-        tradutor_uf_local = {
-            "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
-            "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
-            "mg": "mg", "pa": "pa", "pb": "pb", "pr": "pr", "pe": "pe", "pi": "pi",
-            "rj": "rj", "rn": "rn", "rs": "rs", "ro": "ro", "rr": "rr", "sc": "sc",
-            "sp": "sp", "se": "se", "to": "to"
-        }
-        
+     # Inclusão das siglas internacionais
+      tradutor_uf_local = {
+    "ac": "ac", "al": "al", "ap": "ap", "am": "am", "ba": "ba", "ce": "ce",
+    "df": "df", "es": "es", "go": "go", "ma": "ma", "mt": "mt", "ms": "ms",
+    "mg": "mg", "pa": "pa", "pb": "pb", "pr": "pr", "pe": "pe", "pi": "pi",
+    "rj": "rj", "rn": "rn", "rs": "rs", "ro": "ro", "rr": "rr", "sc": "sc",
+    "sp": "sp", "se": "se", "to": "to", 
+    "pt": "pt", "it": "it"
+      }
+
         if not df.empty and "UF" in df.columns:
             somas_estados = {}
             for _, row in df.iterrows():
