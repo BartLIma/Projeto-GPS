@@ -3,6 +3,13 @@ import streamlit as st
 import requests
 import os
 import datetime
+import streamlit as st
+
+# Força o navegador a desabilitar tradutores automáticos que quebram o React DOM
+st.set_page_col_config = st.markdown(
+    '<meta name="google" content="notranslate">', 
+    unsafe_allow_html=True
+)
 
 st.set_page_config(layout="wide")
 
