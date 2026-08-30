@@ -390,7 +390,7 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-        # --- ABA 4: MAPA POR MUNICÍPIO ---
+           # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e listar os membros.")
@@ -401,12 +401,25 @@ if st.session_state["acesso_liberado"]:
             lista_municipios_reais = sorted(df_filtrado_cidades["Município"].unique())
             
             if lista_municipios_reais:
-                cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar no mapa:", lista_municipios_reais)
+                cidade_selecionada = st.selectbox("Selecione qual município você deseja analisar:", lista_municipios_reais)
                 membros_da_cidade = df[df["Município"].str.lower().str.strip() == cidade_selecionada.lower().strip()]
                 total_membros = len(membros_da_cidade)
                 
                 st.metric(f"📍 Membros em {cidade_selecionada}", total_membros)
                 
+                # --- 📊 SEÇÃO DA TABELA (OBRIGATÓRIA): Sempre aparece na tela ---
+                st.markdown("---")
+                st.markdown(f"### 📋 Dados Completos dos Membros Localizados em **{cidade_selecionada}**")
+                st.markdown("A tabela abaixo mostra todas as informações originais da sua planilha para esta localidade.")
+                
+                st.dataframe(
+                    membros_da_cidade, 
+                    use_container_width=True, 
+                    hide_index=True
+                )
+                st.markdown("---")
+                
+                # --- 🗺️ SEÇÃO DO MAPA (INDEPENDENTE): Se falhar, não esconde a tabela ---
                 cep_referencia = ""
                 for _, row in membros_da_cidade.iterrows():
                     if "Cep" in df.columns and str(row["Cep"]).strip().isdigit() and len(str(row["Cep"]).strip()) == 8:
@@ -439,7 +452,9 @@ if st.session_state["acesso_liberado"]:
                             longitude_descoberta = float(req_osm["lon"])
                     except: pass
                 
+                # Renderiza o mapa apenas se as coordenadas forem válidas, sem travar o app
                 if latitude_descoberta is not None and longitude_descoberta is not None:
+                    st.markdown("#### 🗺️ Localização Geográfica")
                     tamanho_circulo = int(total_membros) * 45
                     df_ponto_mapa = pd.DataFrame([{
                         "latitude": latitude_descoberta,
@@ -447,20 +462,9 @@ if st.session_state["acesso_liberado"]:
                         "size": tamanho_circulo
                     }])
                     st.map(df_ponto_mapa, size="size", color="#0056b3")
-                    
-                    # 📊 NOVA SEÇÃO: Relação Nominal Detalhada das Pessoas Localizadas
-                    st.markdown("---")
-                    st.markdown(f"### 📋 Dados Completos dos Membros Localizados em **{cidade_selecionada}**")
-                    st.markdown("A tabela abaixo mostra todas as linhas e informações originais da sua planilha para esta localidade. Você pode ordenar clicando no cabeçalho das colunas.")
-                    
-                    # Exibe o dataframe filtrado com barra de rolagem e busca interna nativa
-                    st.dataframe(
-                        membros_da_cidade, 
-                        use_container_width=True, 
-                        hide_index=True
-                    )
                 else:
-                    st.warning(f"ℹ️ Não foi possível obter as coordenadas geográficas para {cidade_selecionada}.")
+                    st.info(f"ℹ️ Nota: O mapa não pôde ser renderizado para {cidade_selecionada} devido à ausência de coordenadas de GPS, mas os dados nominais acima estão preservados.")
+                    
             else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
