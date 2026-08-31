@@ -129,7 +129,7 @@ coordenadas_cidades = {
     "são josé": {"lat": -27.6144, "lon": -48.6231},
     "maracanaú": {"lat": -3.8767, "lon": -38.6253},
     "porto velho": {"lat": -8.7619, "lon": -63.9039},
-    "araçuaí": {"lat": -16.5100, "lon": -42.0412}
+    "araçuaí": {"lat": -16.8500, "lon": -42.0700}
 }
 
 # Dicionário de conversão e padronização de estados (UFs)
