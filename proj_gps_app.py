@@ -128,7 +128,7 @@ coordenadas_cidades = {
     "petrópolis": {"lat": -22.5111, "lon": -43.1778},
     "são josé": {"lat": -27.6144, "lon": -48.6231},
     "maracanaú": {"lat": -3.8767, "lon": -38.6253},
-    "porto velho": {"lat": -8.7619, "lon": -63.9039}
+    "porto velho": {"lat": -8.7619, "lon": -63.9039},
     "araçuaí": {"lat": -16.5100, "lon": -42.0412}
 }
 
