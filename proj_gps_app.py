@@ -230,13 +230,14 @@ if st.session_state["acesso_liberado"]:
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
     st.sidebar.markdown("---")
 
-    # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
+   # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
         
-        # --- ALTERAÇÃO AQUI: Limitando a largura do campo de digitação ---
-        col_busca, _ = st.columns([4, 8])
-        with col_busca:
+        # --- TRUQUE DESIGN: Criamos duas colunas principais lado a lado ---
+        col1, col2 = st.columns(2)
+        
+        with col1:
             busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
         
         if busca_nome.strip():
@@ -249,9 +250,8 @@ if st.session_state["acesso_liberado"]:
                 for idx, row in registros_encontrados.iterrows():
                     opcoes_pessoas[f"{row['Nome Civil']} ({row['Nome Judaico']}) - {row['Município']}"] = int(idx)
                 
-                # --- ALTERAÇÃO AQUI: Limitando a largura da caixa de seleção ---
-                col_select, _ = st.columns([4, 8])
-                with col_select:
+                # --- ALTERAÇÃO AQUI: Colocamos o selectbox na segunda coluna criada acima ---
+                with col2:
                     pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
                 
                 p_idx_escolhido = opcoes_pessoas.get(pessoa_sel)
@@ -295,6 +295,7 @@ if st.session_state["acesso_liberado"]:
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
                 st.caption("ℹ️ Mapa em nível de rua indisponível para este município.")
+
     # --- ABA 2: FORMULÁRIO DE EDIÇÃO DE REGISTROS EXISTENTES ---
     elif menu == "📝 Editar Cadastro Existente":
         st.subheader("📝 Editar Cadastro Comunitário")
