@@ -281,8 +281,8 @@ if st.session_state["acesso_liberado"]:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
                 coords = coordenadas_cidades[muni_membro]
                 df_muni_mapa = pd.DataFrame([{
-                    "lat": float(coords[0]), 
-                    "lon": float(coords[1])
+                    "latitude": float(coords[0]), 
+                    "longitude": float(coords[1])
                 }])
                 st.map(df_muni_mapa, size=30, color="#2e7d32")
             else:
