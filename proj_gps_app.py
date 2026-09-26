@@ -233,7 +233,11 @@ if st.session_state["acesso_liberado"]:
     # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
-        busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
+        
+        # --- ALTERAÇÃO AQUI: Limitando a largura do campo de digitação ---
+        col_busca, _ = st.columns([4, 8])
+        with col_busca:
+            busca_nome = st.text_input("Digite o Nome Civil ou Nome Judaico para pesquisar:", value="")
         
         if busca_nome.strip():
             termo = busca_nome.lower().strip()
@@ -245,7 +249,11 @@ if st.session_state["acesso_liberado"]:
                 for idx, row in registros_encontrados.iterrows():
                     opcoes_pessoas[f"{row['Nome Civil']} ({row['Nome Judaico']}) - {row['Município']}"] = int(idx)
                 
-                pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
+                # --- ALTERAÇÃO AQUI: Limitando a largura da caixa de seleção ---
+                col_select, _ = st.columns([4, 8])
+                with col_select:
+                    pessoa_sel = st.selectbox("Selecione a pessoa para abrir a ficha:", sorted(opcoes_pessoas.keys()))
+                
                 p_idx_escolhido = opcoes_pessoas.get(pessoa_sel)
                 if p_idx_escolhido is not None and p_idx_escolhido >= 0:
                     st.session_state["indice_persona_consultada"] = p_idx_escolhido
