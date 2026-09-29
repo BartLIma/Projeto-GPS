@@ -4,7 +4,6 @@ import requests
 import os
 import datetime
 import unicodedata
-import urllib.parse
 
 # Força o navegador a desabilitar tradutores automáticos que quebram o React DOM
 st.markdown(
@@ -42,40 +41,6 @@ headers_viacep = {
     "Accept": "application/json"
 }
 
-# --- ALAVANCA 100% DINÂMICA: BUSCA LOCALIZAÇÃO SÓ PELO NOME ---
-@st.cache_data(show_spinner=False)
-def buscar_coordenadas(nome_municipio, uf_registro=""):
-    """Consulta a API Nominatim diretamente por texto com alta precisão global"""
-    if not nome_municipio or pd.isna(nome_municipio):
-        return None
-        
-    try:
-        muni_limpo = str(nome_municipio).strip().lower()
-        uf_limpa = str(uf_registro).strip().lower()
-        
-        # Estrutura a busca textual dinâmica baseada na região informada no CSV
-        if uf_limpa == "pt":
-            termo_completo = f"{muni_limpo}, Portugal"
-        elif uf_limpa == "it":
-            termo_completo = f"{muni_limpo}, Italy"
-        elif uf_limpa:
-            termo_completo = f"{muni_limpo}, {uf_limpa.upper()}, Brazil"
-        else:
-            termo_completo = f"{muni_limpo}, Brazil"
-            
-        cidade_enc = urllib.parse.quote(termo_completo)
-        url = f"https://openstreetmap.org{cidade_enc}&format=jsonv2&limit=1"
-        
-        resposta = requests.get(url, headers=headers_viacep, timeout=8)
-        dados = resposta.json()
-        
-        if dados and len(dados) > 0:
-            return {"lat": float(dados[0]["lat"]), "lon": float(dados[0]["lon"])}
-    except Exception:
-        pass
-        
-    return None
-
 # --- TELA DE LOGIN ---
 if not st.session_state["acesso_liberado"]:
     st.title("🔐 Painel GPS - Autenticação")
@@ -88,8 +53,125 @@ if not st.session_state["acesso_liberado"]:
                 st.rerun()
             else: 
                 st.error("Senha incorreta! Tente novamente.")
+# --- BANCO DE COORDENADAS DO SEU CSV (CHAVES EM MINÚSCULO E SEM ACENTOS) ---
+# Carrega instantaneamente na tela sem precisar consultar a internet
+coordenadas_cidades = {
+    "campina grande": {"lat": -7.2306, "lon": -35.8811},
+    "lisboa": {"lat": 38.7223, "lon": -9.1393},
+    "vacaria": {"lat": -28.5114, "lon": -50.9322},
+    "parana": {"lat": -24.5000, "lon": -51.5000}, # Ajustado para o centro do PR
+    "recife": {"lat": -8.0539, "lon": -34.8811},
+    "porto alegre": {"lat": -30.0346, "lon": -51.2177},
+    "ipojuca": {"lat": -8.3981, "lon": -35.0614},
+    "santos": {"lat": -23.9608, "lon": -46.3339},
+    "palhoca": {"lat": -27.6414, "lon": -48.6672},
+    "manaus": {"lat": -3.1190, "lon": -60.0217},
+    "brasilia": {"lat": -15.7801, "lon": -47.9292},
+    "timoteo": {"lat": -19.5828, "lon": -42.6414},
+    "colombo": {"lat": -25.2917, "lon": -49.2242},
+    "sao luiz gonzaga": {"lat": -28.4081, "lon": -54.9606},
+    "salvador": {"lat": -12.9714, "lon": -38.5014},
+    "rio de janeiro": {"lat": -22.9068, "lon": -43.1729},
+    "fortaleza": {"lat": -3.7319, "lon": -38.5267},
+    "ponta grossa": {"lat": -25.0950, "lon": -50.1614},
+    "oeiras  lisboa": {"lat": 38.6969, "lon": -9.3044},
+    "belo horizonte": {"lat": -19.9167, "lon": -43.9345},
+    "sobral": {"lat": -3.6847, "lon": -40.3497},
+    "goiania": {"lat": -16.6869, "lon": -49.2648},
+    "divinopolis": {"lat": -20.1431, "lon": -44.8908},
+    "florianopolis": {"lat": -27.5954, "lon": -48.5480},
+    "guaraciaba do norte": {"lat": -4.1672, "lon": -40.7481},
+    "garanhuns": {"lat": -8.8906, "lon": -36.4928},
+    "ceilandia norte": {"lat": -15.8181, "lon": -48.1064},
+    "natal": {"lat": -5.7945, "lon": -35.2110},
+    "londrina": {"lat": -23.3106, "lon": -51.1628},
+    "lagoa santa": {"lat": -19.6411, "lon": -43.8903},
+    "itumbiara": {"lat": -18.4194, "lon": -49.2139},
+    "braga": {"lat": 41.5454, "lon": -8.4265},
+    "ruy barbosa": {"lat": -12.2839, "lon": -40.4064},
+    "nova lima": {"lat": -19.9856, "lon": -43.8503},
+    "cascavel": {"lat": -24.9558, "lon": -53.4553},
+    "teresina": {"lat": -5.0920, "lon": -42.8034},
+    "são paulo": {"lat": -23.5505, "lon": -46.6333},
+    "sao paulo": {"lat": -23.5505, "lon": -46.6333},
+    "passo fundo": {"lat": -28.2586, "lon": -52.4089},
+    "maceio": {"lat": -9.6658, "lon": -35.7350},
+    "belem": {"lat": -1.4558, "lon": -48.4902},
+    "cariacica": {"lat": -20.3364, "lon": -40.4200},
+    "guaruja": {"lat": -23.9931, "lon": -46.2564},
+    "balneario camboriu": {"lat": -26.9926, "lon": -48.6347},
+    "sao vicente": {"lat": -23.9631, "lon": -46.3919},
+    "balsas": {"lat": -7.5325, "lon": -46.1375},
+    "araucaria": {"lat": -25.5925, "lon": -49.4103},
+    "capanema": {"lat": -1.1983, "lon": -47.1736},
+    "palmas": {"lat": -10.1838, "lon": -48.3336},
+    "nova iorque": {"lat": -6.7408, "lon": -44.0414},
+    "curitiba": {"lat": -25.4290, "lon": -49.2671},
+    "vitoria": {"lat": -20.3155, "lon": -40.3128},
+    "mage": {"lat": -22.6067, "lon": -43.0403},
+    "aracuai": {"lat": -16.8494, "lon": -42.4414},
+    "seixal": {"lat": 38.6436, "lon": -9.1009},
+    "bauru": {"lat": -22.3147, "lon": -49.0586},
+    "irati": {"lat": -25.4672, "lon": -50.6511},
+    "camboriu": {"lat": -27.0253, "lon": -48.6539},
+    "aracaju": {"lat": -10.9472, "lon": -37.0731},
+    "aguas de sao pedro": {"lat": -22.5986, "lon": -47.8739},
+    "sao lourenco": {"lat": -22.1158, "lon": -45.0547},
+    "aparecida de goiania": {"lat": -16.8219, "lon": -49.2458},
+    "caruaru": {"lat": -8.2839, "lon": -35.9753},
+    "cacoal": {"lat": -11.4428, "lon": -61.4425},
+    "caxias do sul": {"lat": -29.1678, "lon": -51.1794},
+    "jardim paulista": {"lat": -8.2839, "lon": -35.9753}, # Aponta para a região metropolitana mapeada
+    "canela": {"lat": -29.3664, "lon": -50.8122},
+    "vale do aco": {"lat": -19.4975, "lon": -42.5458},
+    "piumhi": {"lat": -20.4633, "lon": -45.9581},
+    "campinas": {"lat": -22.9056, "lon": -47.0608},
+    "alcobaca": {"lat": -17.5161, "lon": -39.1958},
+    "nova iguacu": {"lat": -22.7561, "lon": -43.4608},
+    "parnamirim": {"lat": -5.9156, "lon": -35.2628},
+    "guarulhos": {"lat": -23.4539, "lon": -46.5333},
+    "blumenau": {"lat": -26.9194, "lon": -49.0661},
+    "rio das ostras": {"lat": -22.5261, "lon": -41.9442},
+    "marechal deodoro": {"lat": -9.7114, "lon": -35.8958},
+    "feira de santana": {"lat": -12.2564, "lon": -38.9631},
+    "sao bernardo do campo": {"lat": -23.6939, "lon": -46.5650},
+    "eusebio": {"lat": -3.8914, "lon": -38.4522},
+    "redencao": {"lat": -7.0264, "lon": -50.0264},
+    "milao": {"lat": 45.4642, "lon": 9.1900},
+    "joinville": {"lat": -26.3044, "lon": -48.8456},
+    "petropolis": {"lat": -22.5111, "lon": -43.1778},
+    "sao jose": {"lat": -27.6144, "lon": -48.6231},
+    "maracanau": {"lat": -3.8767, "lon": -38.6253},
+    "porto velho": {"lat": -8.7619, "lon": -63.9039},
+    "santa cruz do capibaribe": {"lat": -7.9519, "lon": -36.2047},
+    "campos do jordao": {"lat": -22.7394, "lon": -45.5914},
+    "ribeirao preto": {"lat": -21.1704, "lon": -47.8103},
+    "presidente venceslau": {"lat": -21.8767, "lon": -51.8436}
+}
 
-# --- APLICATIVO PRINCIPAL LIBERADO (IDENTAÇÃO ALINHADA) ---
+# Dicionário de Coordenadas Centrais das UFs e Países do seu CSV
+coordenadas_estados = {
+    "pb": [-7.1198, -36.5000], "pt": [39.3999, -8.2245], "rs": [-30.0000, -53.5000], 
+    "pr": [-24.5000, -51.5000], "pe": [-8.2833, -35.0730], "sp": [-23.5500, -46.6333], 
+    "sc": [-27.2500, -50.5000], "am": [-3.1190, -60.0217], "df": [-15.7942, -47.8822], 
+    "mg": [-18.5122, -44.5550], "ba": [-12.5000, -41.5000], "rj": [-22.9068, -43.1729], 
+    "ce": [-5.0000, -39.5000], "go": [-15.8270, -49.8362], "rn": [-5.7950, -36.5000], 
+    "pi": [-7.7183, -42.7289], "al": [-9.5713, -36.7820], "pa": [-5.5300, -52.2900], 
+    "es": [-19.7500, -40.5000], "ma": [-4.9609, -45.2744], "to": [-10.1838, -48.3336], 
+    "se": [-10.5740, -37.3857], "ro": [-11.5000, -63.0000], "it": [41.8719, 12.5674]
+}
+
+def buscar_coordenadas(nome_municipio):
+    """Retorna instantaneamente do banco local removendo acentos do texto da planilha"""
+    if not nome_municipio:
+        return None
+    texto = unicodedata.normalize('NFKD', str(nome_municipio)).encode('ascii', 'ignore').decode('utf-8')
+    chave_limpa = texto.strip().lower().replace("-", " ").replace("  ", " ")
+    
+    if chave_limpa in coordenadas_cidades:
+        return coordenadas_cidades[chave_limpa]
+    return None
+# --- EXECUÇÃO LOGADA COM IDENTAÇÃO INTEGRADA ---
 if st.session_state["acesso_liberado"]:
     lista_colunas_obrigatorias = ["Carimbo de data/hora", "Nome Civil", "Nome Judaico", "E-mail", "Endereço", "Número de telefone", "Perfil de Identidade", "Vinculação Comunitária", "Comentários", "Município", "UF"]
     
@@ -127,6 +209,7 @@ if st.session_state["acesso_liberado"]:
     st.sidebar.header("Painel de Controle GPS")
     menu = st.sidebar.radio("Selecione a Ação:", ["🔍 Consultar por Nome", "📝 Editar Cadastro Existente", "🆕 Criar Novo Cadastro do Zero", "🏙️ Mapa por Município", "🗺️ Mapa por Estado"])
     st.sidebar.markdown("---")
+
     # --- ABA 1: CONSULTA DO BANCO DE DADOS POR NOME ---
     if menu == "🔍 Consultar por Nome":
         st.title("🔍 Consulta de Membros da Comunidade")
@@ -177,11 +260,9 @@ if st.session_state["acesso_liberado"]:
             st.text_area("🗒️ Comentários:", value=df.at[p_idx, 'Comentários'], height=80, disabled=True)
             
             muni_membro = str(df.at[p_idx, 'Município']).strip()
-            uf_membro = str(df.at[p_idx, 'UF']).strip()
-            
             if muni_membro:
                 st.markdown(f"#### 🗺️ Localização Geográfica Focalizada — {muni_membro.title()}")
-                coords = buscar_coordenadas(muni_membro, uf_membro)
+                coords = buscar_coordenadas(muni_membro)
                 if coords:
                     df_muni_mapa = pd.DataFrame([{"latitude": float(coords["lat"]), "longitude": float(coords["lon"])}])
                     st.map(df_muni_mapa, size=40, color="#2e7d32", zoom=12)
@@ -291,7 +372,8 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-       # --- ABA 4: MAPA POR MUNICÍPIO ---
+
+    # --- ABA 4: MAPA POR MUNICÍPIO (TELA DE DADOS) ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e listar os membros.")
@@ -312,14 +394,8 @@ if st.session_state["acesso_liberado"]:
                 
                 st.dataframe(membros_da_cidade, use_container_width=True, hide_index=True)
                 st.markdown("---")
-                
-                uf_referencia = ""
-                if "UF" in membros_da_cidade.columns and not membros_da_cidade.empty:
-                    # CORREÇÃO CRUCIAL: Captura o texto correto da UF usando o índice posicional .iloc[0]
-                    uf_referencia = str(membros_da_cidade["UF"].iloc[0]).strip()
-                
-                # CHAMADA DA ALAVANCA HÍBRIDA GLOBAL 100% DINÂMICA:
-                coords_descobertas = buscar_coordenadas(cidade_selecionada, uf_referencia)
+                # CHAMADA DO BANCO DE COORDENADAS ESTÁTICAS REAIS DO SEU CSV:
+                coords_descobertas = buscar_coordenadas(cidade_selecionada)
                 
                 if coords_descobertas:
                     st.markdown("#### 🗺️ Localização Geográfica")
@@ -331,7 +407,7 @@ if st.session_state["acesso_liberado"]:
                     }])
                     st.map(df_ponto_mapa, size="size", color="#0056b3")
                 else:
-                    st.info(f"ℹ️ Nota: O mapa não pôde ser renderizado para {cidade_selecionada}, mas os dados nominais acima estão preservados.")
+                    st.info(f"ℹ️ Nota: O mapa não pôde ser renderizado para {cidade_selecionada} devido à ausência de coordenadas cadastradas.")
             else: st.warning("⚠️ Nenhum município válido localizado na coluna.")
         else: st.warning("⚠️ A coluna 'Município' não foi localizada.")
 
@@ -346,17 +422,16 @@ if st.session_state["acesso_liberado"]:
             df_validos_uf = df_validos_uf[df_validos_uf["UF"].str.lower() != "nan"]
             lista_ufs_reais = sorted(df_validos_uf["UF"].unique())
             
+            somas_estados = {}
             for uf_item in lista_ufs_reais:
-                # Filtra os membros pertencentes a esta UF específica para contar
-                membros_do_estado = df[df["UF"].str.lower().str.strip() == uf_item.lower().strip()]
-                total_uf = len(membros_do_estado)
+                uf_oficial = uf_item.strip().lower()
+                total_uf = len(df[df["UF"].str.lower().str.strip() == uf_oficial])
                 
-                # CORREÇÃO CRUCIAL: Passa os dados limpos textuais para buscar o centro do estado/país na internet
-                coords_uf = buscar_coordenadas(uf_item, uf_item)
-                if coords_uf:
+                if uf_oficial in coordenadas_estados:
+                    coords = coordenadas_estados[uf_oficial]
                     lista_mapa_estado.append({
-                        "latitude": float(coords_uf["lat"]), 
-                        "longitude": float(coords_uf["lon"]), 
+                        "latitude": float(coords[0]), 
+                        "longitude": float(coords[1]), 
                         "uf_sigla": uf_item.upper(), 
                         "quantidade": int(total_uf), 
                         "size": int(total_uf) * 150
