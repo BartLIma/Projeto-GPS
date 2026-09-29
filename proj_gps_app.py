@@ -291,7 +291,7 @@ if st.session_state["acesso_liberado"]:
                     agora_carimbo = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     df_novo_membro_copia = pd.DataFrame([[agora_carimbo, n_nome.strip(), n_judaico, n_email, n_rua, n_telefone, n_perfil, n_vinculo, n_coment, n_muni, n_estado]], columns=lista_colunas_obrigatorias)
                     st.dataframe(df_novo_membro_copia, use_container_width=False)
-    # --- ABA 4: MAPA POR MUNICÍPIO ---
+       # --- ABA 4: MAPA POR MUNICÍPIO ---
     elif menu == "🏙️ Mapa por Município":
         st.title("🏙️ Mapa de Distribuição por Município")
         st.markdown("Selecione qualquer município presente na sua base de dados para focar a visão e listar os membros.")
@@ -315,6 +315,7 @@ if st.session_state["acesso_liberado"]:
                 
                 uf_referencia = ""
                 if "UF" in membros_da_cidade.columns and not membros_da_cidade.empty:
+                    # CORREÇÃO CRUCIAL: Captura o texto correto da UF usando o índice posicional .iloc[0]
                     uf_referencia = str(membros_da_cidade["UF"].iloc[0]).strip()
                 
                 # CHAMADA DA ALAVANCA HÍBRIDA GLOBAL 100% DINÂMICA:
@@ -345,11 +346,12 @@ if st.session_state["acesso_liberado"]:
             df_validos_uf = df_validos_uf[df_validos_uf["UF"].str.lower() != "nan"]
             lista_ufs_reais = sorted(df_validos_uf["UF"].unique())
             
-            somas_estados = {}
             for uf_item in lista_ufs_reais:
-                total_uf = len(df[df["UF"].str.lower().str.strip() == uf_item.lower().strip()])
+                # Filtra os membros pertencentes a esta UF específica para contar
+                membros_do_estado = df[df["UF"].str.lower().str.strip() == uf_item.lower().strip()]
+                total_uf = len(membros_do_estado)
                 
-                # Faz a busca dinâmica em tempo real no globo terrestre usando a própria sigla/nome (Ex: PB, PT, IT)
+                # CORREÇÃO CRUCIAL: Passa os dados limpos textuais para buscar o centro do estado/país na internet
                 coords_uf = buscar_coordenadas(uf_item, uf_item)
                 if coords_uf:
                     lista_mapa_estado.append({
